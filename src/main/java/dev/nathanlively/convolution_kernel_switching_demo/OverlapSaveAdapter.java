@@ -3,7 +3,14 @@ package dev.nathanlively.convolution_kernel_switching_demo;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.commons.numbers.complex.Complex;
 
+import java.util.List;
+
 public class OverlapSaveAdapter implements Convolution {
+    @Override
+    public double[] with(double[] signal, List<KernelSwitch> kernelSwitches) {
+        return with(signal, kernelSwitches.get(0).kernel());
+    }
+
     @Override
     public double[] with(double[] signal, double[] kernel) {
         SignalTransformer.validate(signal, kernel);

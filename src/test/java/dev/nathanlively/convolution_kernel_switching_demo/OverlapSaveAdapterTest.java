@@ -6,8 +6,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Comparator;
+import java.util.List;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class OverlapSaveAdapterTest {
     private static final Logger log = LoggerFactory.getLogger(OverlapSaveAdapterTest.class);
@@ -43,5 +44,16 @@ class OverlapSaveAdapterTest {
 
         assertThat(result1).usingElementComparator(doubleComparator())
                 .containsExactly(result2);
+    }
+
+    @Test
+    void givenSingleImpulseKernel_whenConvolvingWithCollection_thenReturnsIdentity() throws Exception {
+        double[] signal = {1};
+        double[] kernel = {1};
+        KernelSwitch kernelSwitch = new KernelSwitch(0, kernel);
+
+        double[] actual = convolution.with(signal, List.of(kernelSwitch));
+
+        assertThat(actual).isEqualTo(kernel);
     }
 }
