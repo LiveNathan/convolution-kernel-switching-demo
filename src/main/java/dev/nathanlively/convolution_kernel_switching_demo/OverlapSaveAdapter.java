@@ -8,7 +8,7 @@ import java.util.List;
 public class OverlapSaveAdapter implements Convolution {
     @Override
     public double[] with(double[] signal, List<KernelSwitch> kernelSwitches) {
-        return with(signal, kernelSwitches.get(0).kernel());
+        return with(signal, kernelSwitches.getFirst().kernel());
     }
 
     @Override

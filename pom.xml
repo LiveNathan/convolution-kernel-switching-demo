@@ -74,7 +74,7 @@
 				<artifactId>maven-compiler-plugin</artifactId>
 				<version>3.14.0</version>
 				<configuration>
-					<release>17</release>
+					<release>24</release>
 					<encoding>UTF-8</encoding>
 					<fork>true</fork>
 					<compilerArgs>
