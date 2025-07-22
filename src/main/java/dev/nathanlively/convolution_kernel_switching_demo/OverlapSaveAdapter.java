@@ -8,6 +8,9 @@ import java.util.List;
 public class OverlapSaveAdapter implements Convolution {
     @Override
     public double[] with(double[] signal, List<KernelSwitch> kernelSwitches) {
+        if (kernelSwitches.isEmpty()) {
+            throw new IllegalArgumentException("kernel switches cannot be empty");
+        }
         return with(signal, kernelSwitches.getFirst().kernel());
     }
 

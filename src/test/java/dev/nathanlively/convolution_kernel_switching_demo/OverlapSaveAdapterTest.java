@@ -9,6 +9,7 @@ import java.util.Comparator;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class OverlapSaveAdapterTest {
     private static final Logger log = LoggerFactory.getLogger(OverlapSaveAdapterTest.class);
@@ -47,6 +48,16 @@ class OverlapSaveAdapterTest {
     }
 
     @Test
+    void givenEmptyKernelSwitches_whenConvolving_thenThrowsException() {
+        double[] signal = {1, 2, 3};
+        List<KernelSwitch> emptyKernelSwitches = List.of();
+
+        assertThatThrownBy(() -> convolution.with(signal, emptyKernelSwitches))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("kernel switches cannot be empty");
+    }
+
+    @Test
     void givenSingleImpulseKernel_whenConvolvingWithCollection_thenReturnsIdentity() {
         double[] signal = {1};
         double[] kernel = {1};
@@ -58,7 +69,7 @@ class OverlapSaveAdapterTest {
     }
 
     @Test
-    void convolutionIsCommutative2() {
+    void convolutionIsCommutativeWithKernelSwitches() {
         double[] values1 = {1, 2, 3};
         double[] values2 = {0.5, 0.25};
         KernelSwitch kernelSwitch1 = new KernelSwitch(0, values1);
