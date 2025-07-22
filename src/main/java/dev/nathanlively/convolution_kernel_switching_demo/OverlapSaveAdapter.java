@@ -3,6 +3,7 @@ package dev.nathanlively.convolution_kernel_switching_demo;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.commons.numbers.complex.Complex;
 
+import java.util.Comparator;
 import java.util.List;
 
 public class OverlapSaveAdapter implements Convolution {
@@ -11,7 +12,48 @@ public class OverlapSaveAdapter implements Convolution {
         if (kernelSwitches.isEmpty()) {
             throw new IllegalArgumentException("kernel switches cannot be empty");
         }
-        return with(signal, kernelSwitches.getFirst().kernel());
+
+        // Sort kernel switches by sample index to handle them in order
+        List<KernelSwitch> sortedSwitches = kernelSwitches.stream()
+                .sorted(Comparator.comparingInt(KernelSwitch::sampleIndex))
+                .toList();
+
+        // For now, implement a simple approach: convolve segments separately
+        SignalTransformer.validate(signal, sortedSwitches.getFirst().kernel());
+
+        int resultLength = signal.length + getMaxKernelLength(sortedSwitches) - 1;
+        double[] result = new double[Math.max(resultLength, signal.length)];
+
+        // Process each segment with its corresponding kernel
+        for (int i = 0; i < sortedSwitches.size(); i++) {
+            KernelSwitch currentSwitch = sortedSwitches.get(i);
+            int startIndex = currentSwitch.sampleIndex();
+            int endIndex = (i + 1 < sortedSwitches.size())
+                    ? sortedSwitches.get(i + 1).sampleIndex()
+                    : signal.length;
+
+            if (startIndex < signal.length && endIndex > startIndex) {
+                // Extract signal segment
+                double[] segment = new double[endIndex - startIndex];
+                System.arraycopy(signal, startIndex, segment, 0, segment.length);
+
+                // Convolve segment with current kernel
+                double[] segmentResult = with(segment, currentSwitch.kernel());
+
+                // Copy result back, handling overlap
+                int copyLength = Math.min(segmentResult.length, result.length - startIndex);
+                System.arraycopy(segmentResult, 0, result, startIndex, copyLength);
+            }
+        }
+
+        return result;
+    }
+
+    private int getMaxKernelLength(List<KernelSwitch> kernelSwitches) {
+        return kernelSwitches.stream()
+                .mapToInt(ks -> ks.kernel().length)
+                .max()
+                .orElse(1);
     }
 
     @Override
