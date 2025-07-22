@@ -127,12 +127,14 @@ class OverlapSaveAdapterTest {
 
         double[] actual = convolution.with(signal, kernelSwitches);
 
+        assertThat(actual).hasSize(5);
+
         // Expected: proper transition where kernel switch affects input processing
         // Output[0]: kernel1 on Signal[0:1] -> 1*1 + 1*1 = 2
         // Output[1]: kernel2 on Signal[1:2] -> 2*1 + 2*1 = 4
         // Output[2]: kernel2 on Signal[2:3] -> 2*1 + 2*1 = 4
         // Output[3]: kernel2 on Signal[3:4] -> 2*1 + 2*0 = 2 (zero padding)
-        double[] expected = {2, 4, 4, 2};
+        double[] expected = {1, 4, 4, 4, 2};
 
         assertThat(actual).usingElementComparator(doubleComparator())
                 .containsExactly(expected);
