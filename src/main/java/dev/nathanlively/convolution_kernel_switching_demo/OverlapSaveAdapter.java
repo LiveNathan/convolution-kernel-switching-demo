@@ -12,6 +12,13 @@ public class OverlapSaveAdapter implements Convolution {
         if (kernelSwitches.isEmpty()) {
             throw new IllegalArgumentException("kernel switches cannot be empty");
         }
+        int expectedKernelLength = kernelSwitches.getFirst().kernel().length;
+        for (KernelSwitch kernelSwitch : kernelSwitches) {
+            if (kernelSwitch.kernel().length != expectedKernelLength) {
+                throw new IllegalArgumentException("all kernels must have the same length");
+            }
+        }
+
 
         // Sort kernel switches by sample index to handle them in order
         List<KernelSwitch> sortedSwitches = kernelSwitches.stream()
