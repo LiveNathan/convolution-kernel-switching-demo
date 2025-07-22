@@ -2,8 +2,6 @@ package dev.nathanlively.convolution_kernel_switching_demo;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Comparator;
 import java.util.List;
@@ -12,7 +10,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class OverlapSaveAdapterTest {
-    private static final Logger log = LoggerFactory.getLogger(OverlapSaveAdapterTest.class);
     private static final double precision = 1e-15;
     private Convolution convolution;
 
@@ -89,15 +86,38 @@ class OverlapSaveAdapterTest {
         double[] kernel2 = {2.0}; // Second kernel
 
         List<KernelSwitch> kernelSwitches = List.of(
-                new KernelSwitch(0, kernel1), // Use kernel1 from start
+                new KernelSwitch(0, kernel1), // Use kernel1 from the start
                 new KernelSwitch(2, kernel2)  // Switch to kernel2 at sample 2
         );
 
         double[] actual = convolution.with(signal, kernelSwitches);
 
-        // Expected: first two samples convolved with kernel1 (0.5),
-        // remaining samples with kernel2 (2.0)
+        // Expected: first two samples convolved with kernel1 (0.5), remaining samples with kernel2 (2.0)
         double[] expected = {0.5, 0.5, 2.0, 2.0};
+        assertThat(actual).usingElementComparator(doubleComparator())
+                .containsExactly(expected);
+    }
+
+    @Test
+    void givenKernelSwitchAtBoundary_whenConvolving_thenHandlesTransitionProperly() {
+        double[] signal = {1, 1, 1, 1};
+        double[] kernel1 = {1, 1}; // Sum of two consecutive samples
+        double[] kernel2 = {2, 2}; // Double sum of two consecutive samples
+
+        List<KernelSwitch> kernelSwitches = List.of(
+                new KernelSwitch(0, kernel1),
+                new KernelSwitch(1, kernel2)  // Switch at sample 1
+        );
+
+        double[] actual = convolution.with(signal, kernelSwitches);
+
+        // Expected: proper transition where kernel switch affects input processing
+        // Output[0]: kernel1 on Signal[0:1] -> 1*1 + 1*1 = 2
+        // Output[1]: kernel2 on Signal[1:2] -> 2*1 + 2*1 = 4
+        // Output[2]: kernel2 on Signal[2:3] -> 2*1 + 2*1 = 4
+        // Output[3]: kernel2 on Signal[3:4] -> 2*1 + 2*0 = 2 (zero padding)
+        double[] expected = {2, 4, 4, 2};
+
         assertThat(actual).usingElementComparator(doubleComparator())
                 .containsExactly(expected);
     }

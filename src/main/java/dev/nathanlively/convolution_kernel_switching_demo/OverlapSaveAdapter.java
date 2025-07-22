@@ -18,10 +18,9 @@ public class OverlapSaveAdapter implements Convolution {
                 .sorted(Comparator.comparingInt(KernelSwitch::sampleIndex))
                 .toList();
 
-        // For now, implement a simple approach: convolve segments separately
         SignalTransformer.validate(signal, sortedSwitches.getFirst().kernel());
 
-        int resultLength = signal.length + getMaxKernelLength(sortedSwitches) - 1;
+        int resultLength = signal.length + kernelSwitches.getFirst().kernel().length - 1;
         double[] result = new double[Math.max(resultLength, signal.length)];
 
         // Process each segment with its corresponding kernel
