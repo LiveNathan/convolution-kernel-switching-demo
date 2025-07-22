@@ -47,7 +47,7 @@ class OverlapSaveAdapterTest {
     }
 
     @Test
-    void givenSingleImpulseKernel_whenConvolvingWithCollection_thenReturnsIdentity() throws Exception {
+    void givenSingleImpulseKernel_whenConvolvingWithCollection_thenReturnsIdentity() {
         double[] signal = {1};
         double[] kernel = {1};
         KernelSwitch kernelSwitch = new KernelSwitch(0, kernel);
@@ -55,5 +55,19 @@ class OverlapSaveAdapterTest {
         double[] actual = convolution.with(signal, List.of(kernelSwitch));
 
         assertThat(actual).isEqualTo(kernel);
+    }
+
+    @Test
+    void convolutionIsCommutative2() {
+        double[] values1 = {1, 2, 3};
+        double[] values2 = {0.5, 0.25};
+        KernelSwitch kernelSwitch1 = new KernelSwitch(0, values1);
+        KernelSwitch kernelSwitch2 = new KernelSwitch(0, values2);
+
+        double[] result1 = convolution.with(values1, List.of(kernelSwitch2));
+        double[] result2 = convolution.with(values2, List.of(kernelSwitch1));
+
+        assertThat(result1).usingElementComparator(doubleComparator())
+                .containsExactly(result2);
     }
 }
