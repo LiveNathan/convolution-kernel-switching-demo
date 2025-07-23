@@ -12,44 +12,78 @@ public class OverlapSaveAdapter implements Convolution {
         if (kernelSwitches.isEmpty()) {
             throw new IllegalArgumentException("kernel switches cannot be empty");
         }
-        int expectedKernelLength = kernelSwitches.getFirst().kernel().length;
-        for (KernelSwitch kernelSwitch : kernelSwitches) {
-            if (kernelSwitch.kernel().length != expectedKernelLength) {
+
+        // Validate kernel lengths
+        int kernelLength = kernelSwitches.getFirst().kernel().length;
+        for (KernelSwitch ks : kernelSwitches) {
+            if (ks.kernel().length != kernelLength) {
                 throw new IllegalArgumentException("all kernels must have the same length");
             }
         }
 
-        // Sort kernel switches by sample index to handle them in order
         List<KernelSwitch> sortedSwitches = kernelSwitches.stream()
                 .sorted(Comparator.comparingInt(KernelSwitch::sampleIndex))
                 .toList();
 
         SignalTransformer.validate(signal, sortedSwitches.getFirst().kernel());
 
-        int kernelLength = sortedSwitches.getFirst().kernel().length;
         int resultLength = signal.length + kernelLength - 1;
         double[] result = new double[resultLength];
 
-        // For each output position, determine which kernel to use and compute the convolution
-        for (int n = 0; n < resultLength; n++) {
-            // Find the appropriate kernel for this output position
-            double[] currentKernel = sortedSwitches.getFirst().kernel(); // Initialize to the first kernel to avoid possible NPE
-            for (int i = sortedSwitches.size() - 1; i >= 0; i--) {
-                if (n >= sortedSwitches.get(i).sampleIndex()) {
-                    currentKernel = sortedSwitches.get(i).kernel();
-                    break;
-                }
-            }
+        // Process each segment between kernel switches using OLS
+        for (int i = 0; i < sortedSwitches.size(); i++) {
+            int segmentStart = sortedSwitches.get(i).sampleIndex();
+            int segmentEnd = (i < sortedSwitches.size() - 1)
+                    ? sortedSwitches.get(i + 1).sampleIndex()
+                    : signal.length;
 
-            // Compute convolution at position n
-            double sum = 0.0;
-            for (int k = 0; k < kernelLength; k++) {
-                int signalIndex = n - k;
-                if (signalIndex >= 0 && signalIndex < signal.length) {
-                    sum += signal[signalIndex] * currentKernel[k];
+            if (segmentEnd > segmentStart) {
+                // Extract segment
+                double[] segment = new double[segmentEnd - segmentStart];
+                System.arraycopy(signal, segmentStart, segment, 0, segment.length);
+
+                // Convolve segment using OLS
+                double[] segmentResult = with(segment, sortedSwitches.get(i).kernel());
+
+                // Copy to result (handling overlap from previous segment)
+                int copyStart = 0;
+                int destStart = segmentStart;
+
+                // For segments after the first, handle transition region
+                if (i > 0) {
+                    // Compute transition region using time-domain convolution
+                    int transitionStart = Math.max(0, segmentStart - kernelLength + 1);
+                    int transitionEnd = Math.min(resultLength, segmentStart + kernelLength - 1);
+
+                    for (int n = transitionStart; n < transitionEnd; n++) {
+                        double sum = 0.0;
+                        double[] kernel = (n < segmentStart)
+                                ? sortedSwitches.get(i - 1).kernel()
+                                : sortedSwitches.get(i).kernel();
+
+                        for (int k = 0; k < kernelLength; k++) {
+                            int signalIndex = n - k;
+                            if (signalIndex >= 0 && signalIndex < signal.length) {
+                                sum += signal[signalIndex] * kernel[k];
+                            }
+                        }
+                        result[n] = sum;
+                    }
+
+                    // Skip the transition region when copying from OLS result
+                    copyStart = kernelLength - 1;
+                    destStart = segmentStart + kernelLength - 1;
+                }
+
+                // Copy non-transition parts from OLS result
+                int copyLength = Math.min(
+                        segmentResult.length - copyStart,
+                        resultLength - destStart
+                );
+                if (copyLength > 0) {
+                    System.arraycopy(segmentResult, copyStart, result, destStart, copyLength);
                 }
             }
-            result[n] = sum;
         }
 
         return result;

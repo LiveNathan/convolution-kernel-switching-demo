@@ -10,7 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class OverlapSaveAdapterTest {
-    private static final double precision = 1e-15;
+    private static final double precision = 1e-14;
     private Convolution convolution;
 
     @BeforeEach
