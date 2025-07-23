@@ -33,7 +33,7 @@ public class OverlapSaveAdapter implements Convolution {
         // For each output position, determine which kernel to use and compute the convolution
         for (int n = 0; n < resultLength; n++) {
             // Find the appropriate kernel for this output position
-            double[] currentKernel = null;
+            double[] currentKernel = sortedSwitches.getFirst().kernel(); // Initialize to the first kernel to avoid possible NPE
             for (int i = sortedSwitches.size() - 1; i >= 0; i--) {
                 if (n >= sortedSwitches.get(i).sampleIndex()) {
                     currentKernel = sortedSwitches.get(i).kernel();
@@ -92,7 +92,7 @@ public class OverlapSaveAdapter implements Convolution {
             Complex[] convolutionTransform = SignalTransformer.multiply(blockTransform, kernelTransform);
             double[] blockResult = SignalTransformer.ifft(convolutionTransform);
 
-            // Extract valid portion (discard first kernelLength-1 samples due to aliasing)
+            // Extract a valid portion (discard first kernelLength-1 samples due to aliasing)
             int validLength = Math.min(blockSize, resultLength - nextBlockStartIndex);
 
             if (validLength > 0) {
