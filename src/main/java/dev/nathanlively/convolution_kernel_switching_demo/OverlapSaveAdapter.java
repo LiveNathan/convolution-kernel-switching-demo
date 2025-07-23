@@ -13,7 +13,7 @@ public class OverlapSaveAdapter implements Convolution {
             throw new IllegalArgumentException("kernel switches cannot be empty");
         }
 
-        // Validate kernel lengths
+        // Validate and sort switches
         int kernelLength = kernelSwitches.getFirst().kernel().length;
         for (KernelSwitch ks : kernelSwitches) {
             if (ks.kernel().length != kernelLength) {
@@ -27,66 +27,97 @@ public class OverlapSaveAdapter implements Convolution {
 
         SignalTransformer.validate(signal, sortedSwitches.getFirst().kernel());
 
+        // If there's only one kernel, use standard OLS
+        if (sortedSwitches.size() == 1) {
+            return with(signal, sortedSwitches.getFirst().kernel());
+        }
+
         int resultLength = signal.length + kernelLength - 1;
         double[] result = new double[resultLength];
 
-        // Process each segment between kernel switches using OLS
+        // Pre-compute FFTs of all kernels
+        int fftSize = calculateOptimalFftSize(signal.length, kernelLength);
+        Complex[][] kernelTransforms = new Complex[sortedSwitches.size()][];
         for (int i = 0; i < sortedSwitches.size(); i++) {
-            int segmentStart = sortedSwitches.get(i).sampleIndex();
-            int segmentEnd = (i < sortedSwitches.size() - 1)
-                    ? sortedSwitches.get(i + 1).sampleIndex()
-                    : signal.length;
+            double[] paddedKernel = SignalTransformer.pad(sortedSwitches.get(i).kernel(), fftSize);
+            kernelTransforms[i] = SignalTransformer.fft(paddedKernel);
+        }
 
-            if (segmentEnd > segmentStart) {
-                // Extract segment
-                double[] segment = new double[segmentEnd - segmentStart];
-                System.arraycopy(signal, segmentStart, segment, 0, segment.length);
+        // Process using modified OLS that switches kernels
+        int blockSize = fftSize - kernelLength + 1;
+        int blockStartIndex = kernelLength - 1;
 
-                // Convolve segment using OLS
-                double[] segmentResult = with(segment, sortedSwitches.get(i).kernel());
+        // Pad signal
+        double[] paddedSignal = SignalTransformer.pad(
+                signal,
+                blockStartIndex,
+                resultLength - signal.length - blockStartIndex
+        );
 
-                // Copy to result (handling overlap from previous segment)
-                int copyStart = 0;
-                int destStart = segmentStart;
+        // Process blocks
+        int totalBlocks = (signal.length + blockSize - 1) / blockSize;
+        for (int blockIndex = 0; blockIndex < totalBlocks; blockIndex++) {
+            int outputStart = blockIndex * blockSize;
 
-                // For segments after the first, handle transition region
-                if (i > 0) {
-                    // Compute transition region using time-domain convolution
-                    int transitionStart = Math.max(0, segmentStart - kernelLength + 1);
-                    int transitionEnd = Math.min(resultLength, segmentStart + kernelLength - 1);
+            // Extract block
+            double[] block = extractSignalBlock(paddedSignal, outputStart, fftSize);
+            Complex[] blockTransform = SignalTransformer.fft(block);
 
-                    for (int n = transitionStart; n < transitionEnd; n++) {
-                        double sum = 0.0;
-                        double[] kernel = (n < segmentStart)
-                                ? sortedSwitches.get(i - 1).kernel()
-                                : sortedSwitches.get(i).kernel();
+            // For each output sample in this block, use the appropriate kernel
+            // This is where we need to be clever...
 
-                        for (int k = 0; k < kernelLength; k++) {
-                            int signalIndex = n - k;
-                            if (signalIndex >= 0 && signalIndex < signal.length) {
-                                sum += signal[signalIndex] * kernel[k];
-                            }
-                        }
-                        result[n] = sum;
-                    }
+            // Find which kernels are active in this block's output range
+            int blockOutputEnd = Math.min(outputStart + blockSize, resultLength);
+            boolean multipleKernels = false;
+            int firstKernelIdx = -1;
 
-                    // Skip the transition region when copying from OLS result
-                    copyStart = kernelLength - 1;
-                    destStart = segmentStart + kernelLength - 1;
+            for (int n = outputStart; n < blockOutputEnd; n++) {
+                int kernelIdx = findKernelIndex(n, sortedSwitches);
+                if (firstKernelIdx == -1) {
+                    firstKernelIdx = kernelIdx;
+                } else if (kernelIdx != firstKernelIdx) {
+                    multipleKernels = true;
+                    break;
                 }
+            }
 
-                // Copy non-transition parts from OLS result
-                int copyLength = Math.min(
-                        segmentResult.length - copyStart,
-                        resultLength - destStart
+            if (!multipleKernels) {
+                // Single kernel for entire block - use standard OLS
+                Complex[] convolutionTransform = SignalTransformer.multiply(
+                        blockTransform, kernelTransforms[firstKernelIdx]
                 );
-                if (copyLength > 0) {
-                    System.arraycopy(segmentResult, copyStart, result, destStart, copyLength);
+                double[] blockResult = SignalTransformer.ifft(convolutionTransform);
+
+                int validLength = Math.min(blockSize, resultLength - outputStart);
+                System.arraycopy(blockResult, blockStartIndex, result, outputStart, validLength);
+            } else {
+                // Multiple kernels in block - use time domain for this block only
+                for (int n = outputStart; n < blockOutputEnd; n++) {
+                    int kernelIdx = findKernelIndex(n, sortedSwitches);
+                    double[] kernel = sortedSwitches.get(kernelIdx).kernel();
+
+                    double sum = 0.0;
+                    for (int k = 0; k < kernelLength; k++) {
+                        int signalIndex = n - k;
+                        if (signalIndex >= 0 && signalIndex < signal.length) {
+                            sum += signal[signalIndex] * kernel[k];
+                        }
+                    }
+                    result[n] = sum;
                 }
             }
         }
 
         return result;
+    }
+
+    private int findKernelIndex(int outputPosition, List<KernelSwitch> sortedSwitches) {
+        for (int i = sortedSwitches.size() - 1; i >= 0; i--) {
+            if (outputPosition >= sortedSwitches.get(i).sampleIndex()) {
+                return i;
+            }
+        }
+        return 0;
     }
 
     @Override
