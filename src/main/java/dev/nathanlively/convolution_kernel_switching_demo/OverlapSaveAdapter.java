@@ -63,9 +63,6 @@ public class OverlapSaveAdapter implements Convolution {
             double[] block = extractSignalBlock(paddedSignal, outputStart, fftSize);
             Complex[] blockTransform = SignalTransformer.fft(block);
 
-            // For each output sample in this block, use the appropriate kernel
-            // This is where we need to be clever...
-
             // Find which kernels are active in this block's output range
             int blockOutputEnd = Math.min(outputStart + blockSize, resultLength);
             boolean multipleKernels = false;
@@ -82,7 +79,7 @@ public class OverlapSaveAdapter implements Convolution {
             }
 
             if (!multipleKernels) {
-                // Single kernel for entire block - use standard OLS
+                // Single kernel for the entire block-use standard OLS
                 Complex[] convolutionTransform = SignalTransformer.multiply(
                         blockTransform, kernelTransforms[firstKernelIdx]
                 );
