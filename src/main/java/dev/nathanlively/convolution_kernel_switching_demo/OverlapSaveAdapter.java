@@ -19,7 +19,6 @@ public class OverlapSaveAdapter implements Convolution {
             }
         }
 
-
         // Sort kernel switches by sample index to handle them in order
         List<KernelSwitch> sortedSwitches = kernelSwitches.stream()
                 .sorted(Comparator.comparingInt(KernelSwitch::sampleIndex))
@@ -27,39 +26,33 @@ public class OverlapSaveAdapter implements Convolution {
 
         SignalTransformer.validate(signal, sortedSwitches.getFirst().kernel());
 
-        int resultLength = signal.length + kernelSwitches.getFirst().kernel().length - 1;
-        double[] result = new double[Math.max(resultLength, signal.length)];
+        int kernelLength = sortedSwitches.getFirst().kernel().length;
+        int resultLength = signal.length + kernelLength - 1;
+        double[] result = new double[resultLength];
 
-        // Process each segment with its corresponding kernel
-        for (int i = 0; i < sortedSwitches.size(); i++) {
-            KernelSwitch currentSwitch = sortedSwitches.get(i);
-            int startIndex = currentSwitch.sampleIndex();
-            int endIndex = (i + 1 < sortedSwitches.size())
-                    ? sortedSwitches.get(i + 1).sampleIndex()
-                    : signal.length;
-
-            if (startIndex < signal.length && endIndex > startIndex) {
-                // Extract signal segment
-                double[] segment = new double[endIndex - startIndex];
-                System.arraycopy(signal, startIndex, segment, 0, segment.length);
-
-                // Convolve segment with current kernel
-                double[] segmentResult = with(segment, currentSwitch.kernel());
-
-                // Copy result back, handling overlap
-                int copyLength = Math.min(segmentResult.length, result.length - startIndex);
-                System.arraycopy(segmentResult, 0, result, startIndex, copyLength);
+        // For each output position, determine which kernel to use and compute the convolution
+        for (int n = 0; n < resultLength; n++) {
+            // Find the appropriate kernel for this output position
+            double[] currentKernel = null;
+            for (int i = sortedSwitches.size() - 1; i >= 0; i--) {
+                if (n >= sortedSwitches.get(i).sampleIndex()) {
+                    currentKernel = sortedSwitches.get(i).kernel();
+                    break;
+                }
             }
+
+            // Compute convolution at position n
+            double sum = 0.0;
+            for (int k = 0; k < kernelLength; k++) {
+                int signalIndex = n - k;
+                if (signalIndex >= 0 && signalIndex < signal.length) {
+                    sum += signal[signalIndex] * currentKernel[k];
+                }
+            }
+            result[n] = sum;
         }
 
         return result;
-    }
-
-    private int getMaxKernelLength(List<KernelSwitch> kernelSwitches) {
-        return kernelSwitches.stream()
-                .mapToInt(ks -> ks.kernel().length)
-                .max()
-                .orElse(1);
     }
 
     @Override
