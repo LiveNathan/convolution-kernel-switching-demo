@@ -131,12 +131,12 @@ class OverlapSaveAdapterTest {
          *   = signal[3] * kernel2[0] + signal[2] * kernel2[1]
          *   = 1 * 2 + 1 * 2 = 4
          *
-         * output[4]: Use kernel2 (sample 4 → period 2, but use last available kernel)
-         *   = signal[4] * kernel2[0] + signal[3] * kernel2[1]
-         *   = 0 * 2 + 1 * 2 = 2
+         * output[4]: Use kernel1 (cycles back)
+         *   = signal[4] * 1 + signal[3] * 1
+         *   = 0 * 1 + 1 * 1 = 1
          */
 
-        double[] expected = {1, 2, 4, 4, 2};
+        double[] expected = {1, 2, 4, 4, 1};
         assertThat(actual).hasSize(5);
         assertThat(actual).usingElementComparator(doubleComparator())
                 .containsExactly(expected);
