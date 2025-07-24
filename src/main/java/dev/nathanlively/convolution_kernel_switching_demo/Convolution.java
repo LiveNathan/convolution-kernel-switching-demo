@@ -4,5 +4,5 @@ import java.util.List;
 
 public interface Convolution {
     double[] with(double[] signal, double[] kernel);
-    double[] with(double[] signal, List<KernelSwitch> kernelSwitches);
+    double[] with(double[] signal, List<double[]> kernels, int periodSamples);
 }
