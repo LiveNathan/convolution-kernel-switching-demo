@@ -4,8 +4,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.Comparator;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class OverlapSaveAdapterTest {
     private static final double precision = 1e-14;
@@ -42,15 +44,15 @@ class OverlapSaveAdapterTest {
                 .containsExactly(result2);
     }
 
-//    @Test
-//    void givenEmptyKernelSwitches_whenConvolving_thenThrowsException() {
-//        double[] signal = {1, 2, 3};
-//        List<KernelSwitch> emptyKernelSwitches = List.of();
-//
-//        assertThatThrownBy(() -> convolution.with(signal, emptyKernelSwitches))
-//                .isInstanceOf(IllegalArgumentException.class)
-//                .hasMessageContaining("kernel switches cannot be empty");
-//    }
+    @Test
+    void givenEmptyKernelSwitches_whenConvolving_thenThrowsException() {
+        double[] signal = {1, 2, 3};
+        List<double[]> emptyKernels = List.of();
+
+        assertThatThrownBy(() -> convolution.with(signal, emptyKernels, 2))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("kernels cannot be empty");
+    }
 
 //    @Test
 //    void givenKernelSwitchesWithDifferentLengths_whenConvolving_thenThrowsException() {
