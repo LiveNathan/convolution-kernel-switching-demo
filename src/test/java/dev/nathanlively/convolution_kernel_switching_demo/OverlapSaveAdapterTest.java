@@ -89,24 +89,21 @@ class OverlapSaveAdapterTest {
                 .containsExactly(result2);
     }
 
-//    @Test
-//    void givenMultipleKernelSwitches_whenConvolving_thenAppliesCorrectKernelAtEachSampleIndex() {
-//        double[] signal = {1, 1, 1, 1}; // Simple signal for easy verification
-//        double[] kernel1 = {0.5}; // First kernel
-//        double[] kernel2 = {2.0}; // Second kernel
-//
-//        List<KernelSwitch> kernelSwitches = List.of(
-//                new KernelSwitch(0, kernel1), // Use kernel1 from the start
-//                new KernelSwitch(2, kernel2)  // Switch to kernel2 at sample 2
-//        );
-//
-//        double[] actual = convolution.with(signal, kernelSwitches);
-//
-//        // Expected: first two samples convolved with kernel1 (0.5), remaining samples with kernel2 (2.0)
-//        double[] expected = {0.5, 0.5, 2.0, 2.0};
-//        assertThat(actual).usingElementComparator(doubleComparator())
-//                .containsExactly(expected);
-//    }
+    @Test
+    void givenMultipleKernels_whenConvolving_thenAppliesCorrectKernelAtEachSampleIndex() {
+        double[] signal = {1, 1, 1, 1}; // Simple signal for easy verification
+        double[] kernel1 = {0.5}; // First kernel
+        double[] kernel2 = {2.0}; // Second kernel
+
+        List<double[]> kernelSwitches = List.of(kernel1, kernel2);
+
+        double[] actual = convolution.with(signal, kernelSwitches, 2);
+
+        // Expected: first two samples convolved with kernel1 (0.5), remaining samples with kernel2 (2.0)
+        double[] expected = {0.5, 0.5, 2.0, 2.0};
+        assertThat(actual).usingElementComparator(doubleComparator())
+                .containsExactly(expected);
+    }
 
 //    @Test
 //    void givenKernelSwitchAtBoundary_whenConvolving_thenHandlesTransitionProperly() {
