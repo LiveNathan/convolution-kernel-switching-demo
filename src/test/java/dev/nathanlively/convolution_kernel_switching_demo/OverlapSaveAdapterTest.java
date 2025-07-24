@@ -54,21 +54,18 @@ class OverlapSaveAdapterTest {
                 .hasMessageContaining("kernels cannot be empty");
     }
 
-//    @Test
-//    void givenKernelSwitchesWithDifferentLengths_whenConvolving_thenThrowsException() {
-//        double[] signal = {1, 2, 3, 4};
-//        double[] kernel1 = {0.5, 0.25}; // Length 2
-//        double[] kernel2 = {2.0, 1.0, 0.5}; // Length 3 - different!
-//
-//        List<KernelSwitch> kernelSwitches = List.of(
-//                new KernelSwitch(0, kernel1),
-//                new KernelSwitch(2, kernel2)
-//        );
-//
-//        assertThatThrownBy(() -> convolution.with(signal, kernelSwitches))
-//                .isInstanceOf(IllegalArgumentException.class)
-//                .hasMessageContaining("all kernels must have the same length");
-//    }
+    @Test
+    void givenKernelSwitchesWithDifferentLengths_whenConvolving_thenThrowsException() {
+        double[] signal = {1, 2, 3, 4};
+        double[] kernel1 = {0.5, 0.25}; // Length 2
+        double[] kernel2 = {2.0, 1.0, 0.5}; // Length 3 - different!
+
+        List<double[]> kernels = List.of(kernel1, kernel2);
+
+        assertThatThrownBy(() -> convolution.with(signal, kernels, 2))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("all kernels must have the same length");
+    }
 
 //    @Test
 //    void givenSingleImpulseKernel_whenConvolvingWithCollection_thenReturnsIdentity() {

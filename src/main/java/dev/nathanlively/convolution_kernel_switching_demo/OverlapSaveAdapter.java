@@ -11,6 +11,10 @@ public class OverlapSaveAdapter implements Convolution {
         if (kernels.isEmpty()) {
             throw new IllegalArgumentException("kernels cannot be empty");
         }
+        int kernelLength = kernels.getFirst().length;
+        if (kernels.stream().anyMatch(kernel -> kernel.length != kernelLength)) {
+            throw new IllegalArgumentException("all kernels must have the same length");
+        }
         return new double[0];
     }
 
