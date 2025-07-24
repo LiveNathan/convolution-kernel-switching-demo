@@ -67,16 +67,15 @@ class OverlapSaveAdapterTest {
                 .hasMessageContaining("all kernels must have the same length");
     }
 
-//    @Test
-//    void givenSingleImpulseKernel_whenConvolvingWithCollection_thenReturnsIdentity() {
-//        double[] signal = {1};
-//        double[] kernel = {1};
-//        KernelSwitch kernelSwitch = new KernelSwitch(0, kernel);
-//
-//        double[] actual = convolution.with(signal, List.of(kernelSwitch));
-//
-//        assertThat(actual).isEqualTo(kernel);
-//    }
+    @Test
+    void givenSingleImpulseKernel_whenConvolvingWithCollection_thenReturnsIdentity() {
+        double[] signal = {1};
+        double[] kernel = {1};
+
+        double[] actual = convolution.with(signal, List.of(kernel), 1);
+
+        assertThat(actual).isEqualTo(kernel);
+    }
 
 //    @Test
 //    void convolutionIsCommutativeWithKernelSwitches() {

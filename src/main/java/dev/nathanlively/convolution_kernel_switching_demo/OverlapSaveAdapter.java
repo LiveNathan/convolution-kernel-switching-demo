@@ -15,16 +15,7 @@ public class OverlapSaveAdapter implements Convolution {
         if (kernels.stream().anyMatch(kernel -> kernel.length != kernelLength)) {
             throw new IllegalArgumentException("all kernels must have the same length");
         }
-        return new double[0];
-    }
-
-    private int findKernelIndex(int outputPosition, List<KernelSwitch> sortedSwitches) {
-        for (int i = sortedSwitches.size() - 1; i >= 0; i--) {
-            if (outputPosition >= sortedSwitches.get(i).sampleIndex()) {
-                return i;
-            }
-        }
-        return 0;
+        return with(signal, kernels.getFirst());
     }
 
     @Override
