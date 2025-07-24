@@ -10,7 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class OverlapSaveAdapterTest {
-    private static final double precision = 1e-14;
+    private static final double precision = 1e-15;
     private Convolution convolution;
 
     @BeforeEach
@@ -45,7 +45,7 @@ class OverlapSaveAdapterTest {
     }
 
     @Test
-    void givenEmptyKernelSwitches_whenConvolving_thenThrowsException() {
+    void givenEmptyKernels_whenConvolving_thenThrowsException() {
         double[] signal = {1, 2, 3};
         List<double[]> emptyKernels = List.of();
 
@@ -77,19 +77,17 @@ class OverlapSaveAdapterTest {
         assertThat(actual).isEqualTo(kernel);
     }
 
-//    @Test
-//    void convolutionIsCommutativeWithKernelSwitches() {
-//        double[] values1 = {1, 2, 3};
-//        double[] values2 = {0.5, 0.25};
-//        KernelSwitch kernelSwitch1 = new KernelSwitch(0, values1);
-//        KernelSwitch kernelSwitch2 = new KernelSwitch(0, values2);
-//
-//        double[] result1 = convolution.with(values1, List.of(kernelSwitch2));
-//        double[] result2 = convolution.with(values2, List.of(kernelSwitch1));
-//
-//        assertThat(result1).usingElementComparator(doubleComparator())
-//                .containsExactly(result2);
-//    }
+    @Test
+    void convolutionIsCommutativeWithKernelSwitches() {
+        double[] values1 = {1, 2, 3};
+        double[] values2 = {0.5, 0.25};
+
+        double[] result1 = convolution.with(values1, List.of(values2), 1);
+        double[] result2 = convolution.with(values2, List.of(values1), 1);
+
+        assertThat(result1).usingElementComparator(doubleComparator())
+                .containsExactly(result2);
+    }
 
 //    @Test
 //    void givenMultipleKernelSwitches_whenConvolving_thenAppliesCorrectKernelAtEachSampleIndex() {
