@@ -15,7 +15,30 @@ public class OverlapSaveAdapter implements Convolution {
         if (kernels.stream().anyMatch(kernel -> kernel.length != kernelLength)) {
             throw new IllegalArgumentException("all kernels must have the same length");
         }
-        return with(signal, kernels.getFirst());
+
+        int resultLength = signal.length + kernelLength - 1;
+        double[] result = new double[Math.max(resultLength, signal.length)];
+
+        // Process each segment with its corresponding kernel
+        for (int i = 0; i < kernels.size(); i++) {
+            int startIndex = i * periodSamples;
+            int endIndex = Math.min((i + 1) * periodSamples, signal.length);
+
+            if (startIndex < signal.length && endIndex > startIndex) {
+                // Extract signal segment
+                double[] segment = new double[endIndex - startIndex];
+                System.arraycopy(signal, startIndex, segment, 0, segment.length);
+
+                // Convolve a segment with current kernel
+                double[] segmentResult = with(segment, kernels.get(i));
+
+                // Copy result back, handling overlap
+                int copyLength = Math.min(segmentResult.length, result.length - startIndex);
+                System.arraycopy(segmentResult, 0, result, startIndex, copyLength);
+            }
+        }
+
+        return result;
     }
 
     @Override

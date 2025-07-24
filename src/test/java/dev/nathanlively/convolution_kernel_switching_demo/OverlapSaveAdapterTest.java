@@ -82,8 +82,8 @@ class OverlapSaveAdapterTest {
         double[] values1 = {1, 2, 3};
         double[] values2 = {0.5, 0.25};
 
-        double[] result1 = convolution.with(values1, List.of(values2), 1);
-        double[] result2 = convolution.with(values2, List.of(values1), 1);
+        double[] result1 = convolution.with(values1, List.of(values2), 100);
+        double[] result2 = convolution.with(values2, List.of(values1), 100);
 
         assertThat(result1).usingElementComparator(doubleComparator())
                 .containsExactly(result2);
