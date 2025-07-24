@@ -105,39 +105,36 @@ class OverlapSaveAdapterTest {
                 .containsExactly(expected);
     }
 
-//    @Test
-//    void givenKernelSwitchAtBoundary_whenConvolving_thenHandlesTransitionProperly() {
-//        double[] signal = {1, 1, 1, 1};
-//        double[] kernel1 = {1, 1}; // Sum of two consecutive samples
-//        double[] kernel2 = {2, 2}; // Double sum of two consecutive samples
-//        List<KernelSwitch> kernelSwitches = List.of(
-//                new KernelSwitch(0, kernel1),
-//                new KernelSwitch(1, kernel2)  // Switch at sample 1
-//        );
-//        double[] actual = convolution.with(signal, kernelSwitches);
-//
-//        /*
-//         * Expected convolution calculation:
-//         *
-//         * output[0]: Use kernel1
-//         *   = signal[0] * 1 + signal[-1] * 1 = 1 * 1 + 0 * 1 = 1
-//         *
-//         * output[1]: Use kernel2 (switch occurs here)
-//         *   = signal[1] * 2 + signal[0] * 2 = 1 * 2 + 1 * 2 = 4
-//         *
-//         * output[2]: Use kernel2
-//         *   = signal[2] * 2 + signal[1] * 2 = 1 * 2 + 1 * 2 = 4
-//         *
-//         * output[3]: Use kernel2
-//         *   = signal[3] * 2 + signal[2] * 2 = 1 * 2 + 1 * 2 = 4
-//         *
-//         * output[4]: Use kernel2
-//         *   = signal[4] * 2 + signal[3] * 2 = 0 * 2 + 1 * 2 = 2
-//         */
-//
-//        double[] expected = {1, 4, 4, 4, 2};
-//        assertThat(actual).hasSize(5);
-//        assertThat(actual).usingElementComparator(doubleComparator())
-//                .containsExactly(expected);
-//    }
+    @Test
+    void givenKernelSwitchAtBoundary_whenConvolving_thenHandlesTransitionProperly() {
+        double[] signal = {1, 1, 1, 1};
+        double[] kernel1 = {1, 1}; // Sum of two consecutive samples
+        double[] kernel2 = {2, 2}; // Double sum of two consecutive samples
+        List<double[]> kernels = List.of(kernel1, kernel2);
+        double[] actual = convolution.with(signal, kernels, 2);
+
+        /*
+         * Expected convolution calculation:
+         *
+         * output[0]: Use kernel1
+         *   = signal[0] * 1 + signal[-1] * 1 = 1 * 1 + 0 * 1 = 1
+         *
+         * output[1]: Use kernel1
+         *   = signal[1] * 1 + signal[0] * 1 = 1 * 1 + 1 * 1 = 2
+         *
+         * output[2]: Use kernel2 (switch occurs here)
+         *   = signal[2] * 2 + signal[1] * 2 = 1 * 2 + 2 * 2 = 6
+         *
+         * output[3]: Use kernel2
+         *   = signal[3] * 2 + signal[2] * 2 = 1 * 2 + 6 * 2 = 14
+         *
+         * output[4]: Use kernel2
+         *   = signal[4] * 2 + signal[3] * 2 = 0 * 2 + 13 * 2 = 26
+         */
+
+        double[] expected = {1, 2, 6, 14, 26};
+        assertThat(actual).hasSize(5);
+        assertThat(actual).usingElementComparator(doubleComparator())
+                .containsExactly(expected);
+    }
 }
