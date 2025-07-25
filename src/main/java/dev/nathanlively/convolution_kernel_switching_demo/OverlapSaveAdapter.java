@@ -16,29 +16,70 @@ public class OverlapSaveAdapter implements Convolution {
             throw new IllegalArgumentException("all kernels must have the same length");
         }
 
+        // The processing block size must align with the kernel switching period.
+        int blockSize = periodSamples;
+
+        // The FFT size must be large enough to avoid time-domain aliasing.
+        int fftSize = CommonUtil.nextPowerOfTwo(blockSize + kernelLength - 1);
+
         int resultLength = signal.length + kernelLength - 1;
         double[] result = new double[Math.max(resultLength, signal.length)];
 
-        // Process each segment with its corresponding kernel
-        for (int i = 0; i < kernels.size(); i++) {
-            int startIndex = i * periodSamples;
-            int endIndex = Math.min((i + 1) * periodSamples, signal.length);
+        // Pre-compute the FFT of all kernels, padded to the chosen fftSize.
+        List<Complex[]> kernelTransforms = kernels.stream()
+                .map(k -> SignalTransformer.fft(SignalTransformer.pad(k, fftSize)))
+                .toList();
 
-            if (startIndex < signal.length && endIndex > startIndex) {
-                // Extract signal segment
-                double[] segment = new double[endIndex - startIndex];
-                System.arraycopy(signal, startIndex, segment, 0, segment.length);
+        // OLS requires an initial overlap of (kernelLength - 1). We simulate this by
+        // padding the signal with zeros at the start and adding enough padding at the
+        // end to accommodate the final block.
+        double[] paddedSignal = SignalTransformer.pad(signal, kernelLength - 1, fftSize);
 
-                // Convolve a segment with current kernel
-                double[] segmentResult = with(segment, kernels.get(i));
+        int totalBlocks = (signal.length + blockSize - 1) / blockSize;
 
-                // Copy result back, handling overlap
-                int copyLength = Math.min(segmentResult.length, result.length - startIndex);
-                System.arraycopy(segmentResult, 0, result, startIndex, copyLength);
+        // Process the signal block by block in a single OLS loop.
+        for (int blockIndex = 0; blockIndex < totalBlocks; blockIndex++) {
+            int outputStartIndex = blockIndex * blockSize;
+
+            // Determine which kernel to use for this block based on the output sample index.
+            int kernelIndex = (outputStartIndex / periodSamples) % kernels.size();
+            Complex[] kernelTransform = kernelTransforms.get(kernelIndex);
+
+            // Extract the K-sample input block from the appropriately padded signal.
+            int inputStartIndex = blockIndex * blockSize;
+            double[] inputBlock = new double[fftSize];
+            int copyLength = Math.min(fftSize, paddedSignal.length - inputStartIndex);
+            if (copyLength > 0) {
+                System.arraycopy(paddedSignal, inputStartIndex, inputBlock, 0, copyLength);
+            }
+
+            // Perform convolution for the block in the frequency domain.
+            Complex[] inputTransform = SignalTransformer.fft(inputBlock);
+            Complex[] convolutionTransform = SignalTransformer.multiply(inputTransform, kernelTransform);
+            double[] blockResult = SignalTransformer.ifft(convolutionTransform);
+
+            // Copy the valid portion of the result to the output buffer.
+            // The first (kernelLength - 1) samples are discarded due to circular
+            // convolution artifacts. The next 'blockSize' samples are the valid result.
+            int validLength = Math.min(blockSize, result.length - outputStartIndex);
+            if (validLength > 0) {
+                System.arraycopy(
+                        blockResult,          // source array
+                        kernelLength - 1,     // source position (skipping aliased samples)
+                        result,               // destination array
+                        outputStartIndex,     // destination position
+                        validLength);         // length to copy
             }
         }
 
-        return result;
+        // Ensure the final result array has the precise, correct length.
+        if (result.length == resultLength) {
+            return result;
+        } else {
+            double[] finalResult = new double[resultLength];
+            System.arraycopy(result, 0, finalResult, 0, resultLength);
+            return finalResult;
+        }
     }
 
     @Override
@@ -59,14 +100,13 @@ public class OverlapSaveAdapter implements Convolution {
         double[] result = new double[resultLength];
 
         // Create a padded signal with initial zeros for overlap
-        double[] paddedSignal = SignalTransformer.pad(
-                signal,
-                blockStartIndex, // startPaddingAmount
-                resultLength - signal.length - blockStartIndex  // endPaddingAmount
-        );
+        int totalBlocks = (resultLength + blockSize - 1) / blockSize;
+        final int lastInputReadPosition = (totalBlocks - 1) * blockSize;
+        final int requiredPaddedLength = lastInputReadPosition + fftSize;
+        final double[] paddedSignal = new double[requiredPaddedLength];
+        System.arraycopy(signal, 0, paddedSignal, kernelLength - 1, signal.length);
 
         // Process blocks
-        int totalBlocks = (signal.length + blockSize - 1) / blockSize;
         for (int blockIndex = 0; blockIndex < totalBlocks; blockIndex++) {
             int nextBlockStartIndex = blockIndex * blockSize;
 
