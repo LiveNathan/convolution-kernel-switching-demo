@@ -3,6 +3,7 @@ package dev.nathanlively.convolution_kernel_switching_demo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
@@ -138,6 +139,69 @@ class OverlapSaveAdapterTest {
 
         double[] expected = {1, 2, 4, 4, 1};
         assertThat(actual).hasSize(5);
+        assertThat(actual).usingElementComparator(doubleComparator())
+                .containsExactly(expected);
+    }
+
+    @Test
+    void givenLongerSignal_whenConvolving_thenCyclesThroughKernelsCorrectly() {
+        double[] signal = new double[10];
+        Arrays.fill(signal, 1.0);
+        double[] kernel1 = {1.0}; // Samples 0-1
+        double[] kernel2 = {2.0}; // Samples 2-3
+        double[] kernel3 = {3.0}; // Samples 4-5
+
+        List<double[]> kernels = List.of(kernel1, kernel2, kernel3);
+        double[] actual = convolution.with(signal, kernels, 2);
+
+        // Verify the pattern: 1,1,2,2,3,3,1,1,2,2
+        double[] expected = {1, 1, 2, 2, 3, 3, 1, 1, 2, 2};
+        assertThat(actual).usingElementComparator(doubleComparator())
+                .containsExactly(expected);
+    }
+
+    @Test
+    void givenNonPowerOfTwoPeriod_whenConvolving_thenSwitchesCorrectly() {
+        double[] signal = new double[9];
+        Arrays.fill(signal, 1.0);
+        double[] kernel1 = {1.0};
+        double[] kernel2 = {2.0};
+
+        List<double[]> kernels = List.of(kernel1, kernel2);
+        double[] actual = convolution.with(signal, kernels, 3); // Period of 3
+
+        // Pattern: k1,k1,k1,k2,k2,k2,k1,k1,k1
+        double[] expected = {1, 1, 1, 2, 2, 2, 1, 1, 1};
+        assertThat(actual).usingElementComparator(doubleComparator())
+                .containsExactly(expected);
+    }
+
+    @Test
+    void givenSingleSamplePeriod_whenConvolving_thenAlternatesEveryaSample() {
+        double[] signal = {1, 1, 1, 1};
+        double[] kernel1 = {0.5};
+        double[] kernel2 = {2.0};
+
+        List<double[]> kernels = List.of(kernel1, kernel2);
+        double[] actual = convolution.with(signal, kernels, 1); // Switch every sample
+
+        // Pattern: k1,k2,k1,k2
+        double[] expected = {0.5, 2.0, 0.5, 2.0};
+        assertThat(actual).usingElementComparator(doubleComparator())
+                .containsExactly(expected);
+    }
+
+    @Test
+    void givenRealisticFilters_whenConvolving_thenProducesExpectedOutput() {
+        double[] signal = {1, 0, 0, 0, 0, 0}; // Impulse
+        double[] lowpass = {0.25, 0.5, 0.25};  // Simple lowpass
+        double[] highpass = {-0.25, 0.5, -0.25}; // Simple highpass
+
+        List<double[]> kernels = List.of(lowpass, highpass);
+        double[] actual = convolution.with(signal, kernels, 3);
+
+        // First 3 samples get lowpass, next 3 get highpass
+        double[] expected = {0.25, 0.5, 0.25, 0, 0, 0, 0, 0};
         assertThat(actual).usingElementComparator(doubleComparator())
                 .containsExactly(expected);
     }

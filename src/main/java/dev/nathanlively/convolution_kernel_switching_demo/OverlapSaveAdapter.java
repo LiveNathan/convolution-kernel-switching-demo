@@ -35,7 +35,7 @@ public class OverlapSaveAdapter implements Convolution {
         // end to accommodate the final block.
         double[] paddedSignal = SignalTransformer.pad(signal, kernelLength - 1, fftSize);
 
-        int totalBlocks = (signal.length + blockSize - 1) / blockSize;
+        int totalBlocks = (resultLength + blockSize - 1) / blockSize;
 
         // Process the signal block by block in a single OLS loop.
         for (int blockIndex = 0; blockIndex < totalBlocks; blockIndex++) {
