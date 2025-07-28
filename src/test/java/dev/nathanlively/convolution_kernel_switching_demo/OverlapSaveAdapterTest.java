@@ -177,7 +177,7 @@ class OverlapSaveAdapterTest {
     }
 
     @Test
-    void givenSingleSamplePeriod_whenConvolving_thenAlternatesEveryaSample() {
+    void givenSingleSamplePeriod_whenConvolving_thenAlternatesEverySample() {
         double[] signal = {1, 1, 1, 1};
         double[] kernel1 = {0.5};
         double[] kernel2 = {2.0};
@@ -200,7 +200,7 @@ class OverlapSaveAdapterTest {
         List<double[]> kernels = List.of(lowpass, highpass);
         double[] actual = convolution.with(signal, kernels, 3);
 
-        // First 3 samples get lowpass, next 3 get highpass
+        // The first 3 samples get lowpass, the next 3 get highpass
         double[] expected = {0.25, 0.5, 0.25, 0, 0, 0, 0, 0};
         assertThat(actual).usingElementComparator(doubleComparator())
                 .containsExactly(expected);
