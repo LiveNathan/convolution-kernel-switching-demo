@@ -16,20 +16,7 @@ public class OverlapSaveAdapter implements Convolution {
 
     @Override
     public double[] with(double[] signal, List<double[]> kernels, int periodSamples) {
-        if (kernels.isEmpty()) {
-            throw new IllegalArgumentException("kernels cannot be empty");
-        }
-
-        SignalTransformer.validate(signal, kernels.getFirst());
-
-        if (periodSamples <= 0) {
-            throw new IllegalArgumentException("periodSamples must be positive");
-        }
-
-        int kernelLength = kernels.getFirst().length;
-        if (kernels.stream().anyMatch(kernel -> kernel.length != kernelLength)) {
-            throw new IllegalArgumentException("all kernels must have the same length");
-        }
+        validateInputs(signal, kernels, periodSamples);
 
         // Use an optimized single-kernel path when appropriate
         if (kernels.size() == 1 && periodSamples >= signal.length) {
@@ -70,6 +57,7 @@ public class OverlapSaveAdapter implements Convolution {
 
     private double[] convolveWithKernelSwitching(double[] signal, List<double[]> kernels, int periodSamples) {
         int kernelLength = kernels.getFirst().length;
+        // FFT size is constrained by the kernel switching period - we cannot optimize block size for efficiency because blocks must align with switching boundaries
         int fftSize = CommonUtil.nextPowerOfTwo(periodSamples + kernelLength - 1);
         int resultLength = signal.length + kernelLength - 1;
         double[] result = new double[Math.max(resultLength, signal.length)];
@@ -94,5 +82,19 @@ public class OverlapSaveAdapter implements Convolution {
         }
 
         return result.length == resultLength ? result : Arrays.copyOf(result, resultLength);
+    }
+
+    private void validateInputs(double[] signal, List<double[]> kernels, int periodSamples) {
+        if (kernels.isEmpty()) {
+            throw new IllegalArgumentException("kernels cannot be empty");
+        }
+        SignalTransformer.validate(signal, kernels.getFirst());
+        if (periodSamples <= 0) {
+            throw new IllegalArgumentException("periodSamples must be positive");
+        }
+        int kernelLength = kernels.getFirst().length;
+        if (kernels.stream().anyMatch(kernel -> kernel.length != kernelLength)) {
+            throw new IllegalArgumentException("all kernels must have the same length");
+        }
     }
 }
