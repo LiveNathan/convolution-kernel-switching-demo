@@ -57,7 +57,6 @@ public class OverlapSaveAdapter implements Convolution {
 
     private double[] convolveWithKernelSwitching(double[] signal, List<double[]> kernels, int periodSamples) {
         int kernelLength = kernels.getFirst().length;
-        // FFT size is constrained by the kernel switching period - we cannot optimize block size for efficiency because blocks must align with switching boundaries
         int fftSize = CommonUtil.nextPowerOfTwo(periodSamples + kernelLength - 1);
         int resultLength = signal.length + kernelLength - 1;
         double[] result = new double[Math.max(resultLength, signal.length)];
