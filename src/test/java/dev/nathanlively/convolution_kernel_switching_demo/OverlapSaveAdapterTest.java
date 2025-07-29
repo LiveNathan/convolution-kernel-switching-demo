@@ -58,8 +58,8 @@ class OverlapSaveAdapterTest {
     @Test
     void givenKernelSwitchesWithDifferentLengths_whenConvolving_thenThrowsException() {
         double[] signal = {1, 2, 3, 4};
-        double[] kernel1 = {0.5, 0.25}; // Length 2
-        double[] kernel2 = {2.0, 1.0, 0.5}; // Length 3 - different!
+        double[] kernel1 = {0.5, 0.25};
+        double[] kernel2 = {2.0, 1.0, 0.5};
 
         List<double[]> kernels = List.of(kernel1, kernel2);
 
