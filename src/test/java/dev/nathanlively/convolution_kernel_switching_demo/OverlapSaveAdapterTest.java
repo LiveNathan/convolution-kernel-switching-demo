@@ -1,8 +1,16 @@
 package dev.nathanlively.convolution_kernel_switching_demo;
 
+import org.apache.commons.math4.legacy.core.MathArrays;
+import org.apache.commons.math4.legacy.linear.ArrayRealVector;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -13,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class OverlapSaveAdapterTest {
     private static final double precision = 1e-15;
     private Convolution convolution;
+    private static final Logger log = LoggerFactory.getLogger(OverlapSaveAdapterTest.class);
 
     @BeforeEach
     void setUp() {
@@ -204,5 +213,63 @@ class OverlapSaveAdapterTest {
         double[] expected = {0.25, 0.5, 0.25, 0, 0, 0, 0, 0};
         assertThat(actual).usingElementComparator(doubleComparator())
                 .containsExactly(expected);
+    }
+
+    @Test
+    void apache() throws Exception {
+        String fileNameKernel = "LakeMerrittBART.wav";
+        String fileNameSignal = "11_Lecture-44k.wav";
+
+        // Load kernel
+        WavFile kernelAudio = loadWavFile(fileNameKernel);
+        final double[] signalValues = kernelAudio.signal();
+        double kernelSum = Arrays.stream(signalValues).map(Math::abs).sum();
+        log.info("Kernel sum: {}", kernelSum);
+        double[] normalizedKernel = new ArrayRealVector(signalValues).unitVector().toArray();
+        log.info("Normalized kernel sum: {}", Arrays.stream(normalizedKernel).map(Math::abs).sum());
+
+        // Load signal
+        final WavFile signalFile = loadWavFile(fileNameSignal);
+        double maxSignal = Arrays.stream(signalFile.signal()).max().orElseThrow();
+        log.info("Signal max: {}", maxSignal);
+        double[] signal = Arrays.copyOf(signalFile.signal(), (int) signalFile.sampleRate() * 10);
+
+        // Perform convolution
+        Convolution convolution = new OverlapSaveAdapter();
+        double[] actual = convolution.with(signal, normalizedKernel);
+
+        assertThat(actual).isNotNull();
+        assertThat(actual.length).isGreaterThan(0);
+        log.info("Convolution result length: {}", actual.length);
+        double maxResult = Arrays.stream(actual).max().orElseThrow();
+        log.info("Convolution result max before normalization: {}", maxResult);
+        actual = MathArrays.scale(1.0 / maxResult, actual);
+        double maxActual = Arrays.stream(actual).max().orElseThrow();
+        log.info("Convolution result max after normalization: {}", maxActual);
+
+        // Listen to the result
+        saveWavFile(signalFile);
+    }
+
+    private WavFile loadWavFile(String fileName) {
+        WavFileReader reader = new WavFileReader();
+        WavFileReader.MultiChannelWavFile multiChannel = reader.loadFromClasspath(fileName);
+        log.info("Signal WAV properties: channels={}, sampleRate={}, length={}",
+                multiChannel.channelCount(), multiChannel.sampleRate(), multiChannel.length());
+
+        return new WavFile(multiChannel.sampleRate(), multiChannel.getChannel(0));
+    }
+
+    private void saveWavFile(WavFile signalFile) throws IOException {
+        WavFileWriter writer = new WavFileWriter();
+        Path outputDir = Paths.get("target/test-outputs");
+        Files.createDirectories(outputDir);
+        String outputFileName = "convolution-result.wav";
+        Path outputPath = outputDir.resolve(outputFileName);
+
+        writer.saveToFile(signalFile, outputPath);
+
+        log.info("Convolution result saved to convolution-result.wav");
+        assertThat(outputPath).exists();
     }
 }
