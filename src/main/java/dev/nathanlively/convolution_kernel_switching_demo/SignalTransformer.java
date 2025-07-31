@@ -141,4 +141,19 @@ public class SignalTransformer {
         Complex[] convolutionTransform = multiply(inputTransform, kernelTransform);
         return ifft(convolutionTransform);
     }
+
+    public static List<double[]> padKernelsToSameLength(List<double[]> kernels) {
+        if (kernels.isEmpty()) {
+            return kernels;
+        }
+
+        int maxLength = kernels.stream()
+                .mapToInt(kernel -> kernel.length)
+                .max()
+                .orElse(0);
+
+        return kernels.stream()
+                .map(kernel -> pad(kernel, maxLength))
+                .toList();
+    }
 }

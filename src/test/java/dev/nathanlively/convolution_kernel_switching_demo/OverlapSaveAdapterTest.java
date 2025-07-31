@@ -1,6 +1,5 @@
 package dev.nathanlively.convolution_kernel_switching_demo;
 
-import org.apache.commons.math4.legacy.core.MathArrays;
 import org.apache.commons.math4.legacy.linear.ArrayRealVector;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -215,6 +214,25 @@ class OverlapSaveAdapterTest {
                 .containsExactly(expected);
     }
 
+    private static double[] normalizeForAudio(double[] signal) {
+        ArrayRealVector vector = new ArrayRealVector(signal);
+        double peak = vector.getLInfNorm(); // L∞ norm = max absolute value
+        final double maxValues = 0.99;
+        if (peak > maxValues) {
+            return vector.mapDivide(peak / maxValues).toArray();
+        }
+        return signal;
+    }
+
+    private WavFile loadWavFile(String fileName) {
+        WavFileReader reader = new WavFileReader();
+        WavFileReader.MultiChannelWavFile multiChannel = reader.loadFromClasspath(fileName);
+        log.info("Signal WAV properties: channels={}, sampleRate={}, length={}",
+                multiChannel.channelCount(), multiChannel.sampleRate(), multiChannel.length());
+
+        return new WavFile(multiChannel.sampleRate(), multiChannel.getChannel(0));
+    }
+
     @Test
     void testConvolutionWithAudioFiles() throws Exception {
         String fileNameKernel1 = "LakeMerrittBART.wav";
@@ -228,6 +246,7 @@ class OverlapSaveAdapterTest {
         final double[] kernel2values = kernelAudio2.signal();
         double[] normalizedKernel1 = new ArrayRealVector(kernel1values).unitVector().toArray();
         double[] normalizedKernel2 = new ArrayRealVector(kernel2values).unitVector().toArray();
+        List<double[]> paddedKernels = SignalTransformer.padKernelsToSameLength(List.of(normalizedKernel1, normalizedKernel2));
 
         // Load signal
         final WavFile signalFile = loadWavFile(fileNameSignal);
@@ -237,32 +256,21 @@ class OverlapSaveAdapterTest {
         Convolution convolution = new OverlapSaveAdapter();
         double[] resultKernelSingle = convolution.with(signal, normalizedKernel1);
         int periodSamples = (int) (signalFile.sampleRate() * 2);
-        double[] resultKernelMultiple = convolution.with(signal, List.of(normalizedKernel1, normalizedKernel2), periodSamples);
+        double[] resultKernelMultiple = convolution.with(signal, paddedKernels, periodSamples);
 
         assertThat(resultKernelSingle).isNotNull();
         assertThat(resultKernelSingle.length).isGreaterThan(0);
-        double maxResult = Arrays.stream(resultKernelSingle).max().orElseThrow();
-        resultKernelSingle = MathArrays.scale(1.0 / maxResult, resultKernelSingle);
-        resultKernelMultiple = MathArrays.scale(1.0 / maxResult, resultKernelMultiple);
+        resultKernelSingle = normalizeForAudio(resultKernelSingle);
+        resultKernelMultiple = normalizeForAudio(resultKernelMultiple);
 
-        saveWavFile(new WavFile(signalFile.sampleRate(), resultKernelSingle));
-        saveWavFile(new WavFile(signalFile.sampleRate(), resultKernelMultiple));
+        saveWavFile(new WavFile(signalFile.sampleRate(), resultKernelSingle), "convolution-result-single-kernel.wav");
+        saveWavFile(new WavFile(signalFile.sampleRate(), resultKernelMultiple), "convolution-result-multiple-kernel.wav");
     }
 
-    private WavFile loadWavFile(String fileName) {
-        WavFileReader reader = new WavFileReader();
-        WavFileReader.MultiChannelWavFile multiChannel = reader.loadFromClasspath(fileName);
-        log.info("Signal WAV properties: channels={}, sampleRate={}, length={}",
-                multiChannel.channelCount(), multiChannel.sampleRate(), multiChannel.length());
-
-        return new WavFile(multiChannel.sampleRate(), multiChannel.getChannel(0));
-    }
-
-    private void saveWavFile(WavFile signalFile) throws IOException {
+    private void saveWavFile(WavFile signalFile, String outputFileName) throws IOException {
         WavFileWriter writer = new WavFileWriter();
         Path outputDir = Paths.get("target/test-outputs");
         Files.createDirectories(outputDir);
-        String outputFileName = "convolution-result.wav";
         Path outputPath = outputDir.resolve(outputFileName);
 
         writer.saveToFile(signalFile, outputPath);
