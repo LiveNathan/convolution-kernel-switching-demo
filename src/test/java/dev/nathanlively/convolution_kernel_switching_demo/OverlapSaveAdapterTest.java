@@ -216,7 +216,7 @@ class OverlapSaveAdapterTest {
     }
 
     @Test
-    void apache() throws Exception {
+    void testConvolutionWithAudioFiles() throws Exception {
         String fileNameKernel1 = "LakeMerrittBART.wav";
         String fileNameKernel2 = "EchoBridge.wav";
         String fileNameSignal = "11_Lecture-44k.wav";
