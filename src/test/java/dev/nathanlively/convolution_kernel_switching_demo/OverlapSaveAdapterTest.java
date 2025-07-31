@@ -217,38 +217,36 @@ class OverlapSaveAdapterTest {
 
     @Test
     void apache() throws Exception {
-        String fileNameKernel = "LakeMerrittBART.wav";
+        String fileNameKernel1 = "LakeMerrittBART.wav";
+        String fileNameKernel2 = "EchoBridge.wav";
         String fileNameSignal = "11_Lecture-44k.wav";
 
-        // Load kernel
-        WavFile kernelAudio = loadWavFile(fileNameKernel);
-        final double[] signalValues = kernelAudio.signal();
-        double kernelSum = Arrays.stream(signalValues).map(Math::abs).sum();
-        log.info("Kernel sum: {}", kernelSum);
-        double[] normalizedKernel = new ArrayRealVector(signalValues).unitVector().toArray();
-        log.info("Normalized kernel sum: {}", Arrays.stream(normalizedKernel).map(Math::abs).sum());
+        // Load kernels
+        WavFile kernelAudio1 = loadWavFile(fileNameKernel1);
+        WavFile kernelAudio2 = loadWavFile(fileNameKernel2);
+        final double[] kernel1values = kernelAudio1.signal();
+        final double[] kernel2values = kernelAudio2.signal();
+        double[] normalizedKernel1 = new ArrayRealVector(kernel1values).unitVector().toArray();
+        double[] normalizedKernel2 = new ArrayRealVector(kernel2values).unitVector().toArray();
 
         // Load signal
         final WavFile signalFile = loadWavFile(fileNameSignal);
-        double maxSignal = Arrays.stream(signalFile.signal()).max().orElseThrow();
-        log.info("Signal max: {}", maxSignal);
         double[] signal = Arrays.copyOf(signalFile.signal(), (int) signalFile.sampleRate() * 10);
 
         // Perform convolution
         Convolution convolution = new OverlapSaveAdapter();
-        double[] actual = convolution.with(signal, normalizedKernel);
+        double[] resultKernelSingle = convolution.with(signal, normalizedKernel1);
+        int periodSamples = (int) (signalFile.sampleRate() * 2);
+        double[] resultKernelMultiple = convolution.with(signal, List.of(normalizedKernel1, normalizedKernel2), periodSamples);
 
-        assertThat(actual).isNotNull();
-        assertThat(actual.length).isGreaterThan(0);
-        log.info("Convolution result length: {}", actual.length);
-        double maxResult = Arrays.stream(actual).max().orElseThrow();
-        log.info("Convolution result max before normalization: {}", maxResult);
-        actual = MathArrays.scale(1.0 / maxResult, actual);
-        double maxActual = Arrays.stream(actual).max().orElseThrow();
-        log.info("Convolution result max after normalization: {}", maxActual);
+        assertThat(resultKernelSingle).isNotNull();
+        assertThat(resultKernelSingle.length).isGreaterThan(0);
+        double maxResult = Arrays.stream(resultKernelSingle).max().orElseThrow();
+        resultKernelSingle = MathArrays.scale(1.0 / maxResult, resultKernelSingle);
+        resultKernelMultiple = MathArrays.scale(1.0 / maxResult, resultKernelMultiple);
 
-        // Listen to the result
-        saveWavFile(signalFile);
+        saveWavFile(new WavFile(signalFile.sampleRate(), resultKernelSingle));
+        saveWavFile(new WavFile(signalFile.sampleRate(), resultKernelMultiple));
     }
 
     private WavFile loadWavFile(String fileName) {
