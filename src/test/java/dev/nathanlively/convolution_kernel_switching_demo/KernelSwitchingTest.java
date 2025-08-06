@@ -23,7 +23,7 @@ class KernelSwitchingTest {
     }
 
     @ParameterizedTest
-    @ValueSource(doubles = {0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.1, 1.5, 2.0})
+    @ValueSource(doubles = {-0.75, 0.75, 0.8, 0.85})
     void givenAbruptKernelSwitch_whenConvolving_thenDetectsDiscontinuity(double kernel2Gain) throws IOException {
         final int sampleRate = 44100;
         double[] signal = AudioSignals.generateSineWave(100, 2.0, sampleRate);
@@ -55,10 +55,7 @@ class KernelSwitchingTest {
         WavFile kernel1Only = new WavFile(sampleRate, AudioSignals.normalize(onlyKernel1));
         WavFile kernel2Only = new WavFile(sampleRate, AudioSignals.normalize(onlyKernel2));
 
-        audioHelper.save(originalSignal, baseFileName + "-original.wav");
         audioHelper.save(switchedResult, baseFileName + "-switched.wav");
-        audioHelper.save(kernel1Only, baseFileName + "-kernel1-only.wav");
-        audioHelper.save(kernel2Only, baseFileName + "-kernel2-only.wav");
 
         // The test passes regardless of error - we're generating audio for empirical testing
         assertThat(error).isGreaterThanOrEqualTo(0.0);
