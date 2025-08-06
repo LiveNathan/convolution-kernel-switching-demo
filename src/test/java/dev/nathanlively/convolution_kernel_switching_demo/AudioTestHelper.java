@@ -52,6 +52,27 @@ public class AudioTestHelper {
         }
         return maxJump;
     }
+
+    // Discontinuity thresholds based on listening tests
+    public static final double CONSERVATIVE_DISCONTINUITY_THRESHOLD = 0.015;
+    public static final double LOW_FREQ_DISCONTINUITY_THRESHOLD = 0.018;   // < 200Hz
+    public static final double MID_FREQ_DISCONTINUITY_THRESHOLD = 0.065;   // 200-2000Hz
+    public static final double HIGH_FREQ_DISCONTINUITY_THRESHOLD = 0.140;  // > 2000Hz
+
+    public void assertNoAudibleDiscontinuities(double[] signal, String context) {
+        assertContinuityThreshold(signal, CONSERVATIVE_DISCONTINUITY_THRESHOLD, context);
+    }
+
+    public void assertFrequencySpecificContinuity(double[] signal, int dominantFrequency, String context) {
+        double threshold = getThresholdForFrequency(dominantFrequency);
+        assertContinuityThreshold(signal, threshold, context);
+    }
+
+    private double getThresholdForFrequency(int frequency) {
+        if (frequency < 200) return LOW_FREQ_DISCONTINUITY_THRESHOLD;
+        if (frequency < 2000) return MID_FREQ_DISCONTINUITY_THRESHOLD;
+        return HIGH_FREQ_DISCONTINUITY_THRESHOLD;
+    }
 }
 
 final class AudioSignals {
