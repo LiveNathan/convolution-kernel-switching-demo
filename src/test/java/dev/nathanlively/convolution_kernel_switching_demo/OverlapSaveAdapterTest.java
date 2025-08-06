@@ -3,13 +3,7 @@ package dev.nathanlively.convolution_kernel_switching_demo;
 import org.apache.commons.math4.legacy.linear.ArrayRealVector;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
@@ -20,11 +14,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class OverlapSaveAdapterTest {
     private static final double precision = 1e-15;
     private Convolution convolution;
-    private static final Logger log = LoggerFactory.getLogger(OverlapSaveAdapterTest.class);
+    private AudioTestHelper audioHelper;
 
     @BeforeEach
     void setUp() {
         convolution = new OverlapSaveAdapter();
+        audioHelper = new AudioTestHelper();
     }
 
     private static Comparator<Double> doubleComparator() {
@@ -214,25 +209,6 @@ class OverlapSaveAdapterTest {
                 .containsExactly(expected);
     }
 
-    private static double[] normalizeForAudio(double[] signal) {
-        ArrayRealVector vector = new ArrayRealVector(signal);
-        double peak = vector.getLInfNorm(); // L∞ norm = max absolute value
-        final double maxValues = 0.99;
-        if (peak > maxValues) {
-            return vector.mapDivide(peak / maxValues).toArray();
-        }
-        return signal;
-    }
-
-    private WavFile loadWavFile(String fileName) {
-        WavFileReader reader = new WavFileReader();
-        WavFileReader.MultiChannelWavFile multiChannel = reader.loadFromClasspath(fileName);
-        log.info("Signal WAV properties: channels={}, sampleRate={}, length={}",
-                multiChannel.channelCount(), multiChannel.sampleRate(), multiChannel.length());
-
-        return new WavFile(multiChannel.sampleRate(), multiChannel.getChannel(0));
-    }
-
     @Test
     void testConvolutionWithAudioFiles() throws Exception {
         String fileNameKernel1 = "LakeMerrittBART.wav";
@@ -240,8 +216,8 @@ class OverlapSaveAdapterTest {
         String fileNameSignal = "11_Lecture-44k.wav";
 
         // Load kernels
-        WavFile kernelAudio1 = loadWavFile(fileNameKernel1);
-        WavFile kernelAudio2 = loadWavFile(fileNameKernel2);
+        WavFile kernelAudio1 = audioHelper.loadFromClasspath(fileNameKernel1);
+        WavFile kernelAudio2 = audioHelper.loadFromClasspath(fileNameKernel2);
         final double[] kernel1values = kernelAudio1.signal();
         final double[] kernel2values = kernelAudio2.signal();
         double[] normalizedKernel1 = new ArrayRealVector(kernel1values).unitVector().toArray();
@@ -249,7 +225,7 @@ class OverlapSaveAdapterTest {
         List<double[]> paddedKernels = SignalTransformer.padKernelsToSameLength(List.of(normalizedKernel1, normalizedKernel2));
 
         // Load signal
-        final WavFile signalFile = loadWavFile(fileNameSignal);
+        final WavFile signalFile = audioHelper.loadFromClasspath(fileNameSignal);
         double[] signal = Arrays.copyOf(signalFile.signal(), (int) signalFile.sampleRate() * 10);
 
         // Perform convolution
@@ -260,22 +236,11 @@ class OverlapSaveAdapterTest {
 
         assertThat(resultKernelSingle).isNotNull();
         assertThat(resultKernelSingle.length).isGreaterThan(0);
-        resultKernelSingle = normalizeForAudio(resultKernelSingle);
-        resultKernelMultiple = normalizeForAudio(resultKernelMultiple);
+        resultKernelSingle = AudioSignals.normalize(resultKernelSingle);
+        resultKernelMultiple = AudioSignals.normalize(resultKernelMultiple);
 
-        saveWavFile(new WavFile(signalFile.sampleRate(), resultKernelSingle), "convolution-result-single-kernel.wav");
-        saveWavFile(new WavFile(signalFile.sampleRate(), resultKernelMultiple), "convolution-result-multiple-kernel.wav");
+        audioHelper.save(new WavFile(signalFile.sampleRate(), resultKernelSingle), "convolution-result-single-kernel.wav");
+        audioHelper.save(new WavFile(signalFile.sampleRate(), resultKernelMultiple), "convolution-result-multiple-kernel.wav");
     }
 
-    private void saveWavFile(WavFile signalFile, String outputFileName) throws IOException {
-        WavFileWriter writer = new WavFileWriter();
-        Path outputDir = Paths.get("target/test-outputs");
-        Files.createDirectories(outputDir);
-        Path outputPath = outputDir.resolve(outputFileName);
-
-        writer.saveToFile(signalFile, outputPath);
-
-        log.info("Convolution result saved to convolution-result.wav");
-        assertThat(outputPath).exists();
-    }
 }
