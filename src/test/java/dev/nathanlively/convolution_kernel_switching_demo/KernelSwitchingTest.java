@@ -20,7 +20,8 @@ class KernelSwitchingTest {
 
     @Test
     void givenAbruptKernelSwitch_whenConvolving_thenDetectsDiscontinuity() {
-        double[] signal = generateSineWave(100, 1.0, 44100);
+        final int sampleRate = 44100;
+        double[] signal = generateSineWave(100, 2.0, sampleRate);
 
         double[] kernel1 = {1.0};  // Unity gain
         double[] kernel2 = {0.5};  // Half gain
@@ -30,7 +31,7 @@ class KernelSwitchingTest {
         double[] onlyKernel2 = convolution.with(signal, kernel2);
 
         // Get actual: switching between kernels
-        int periodSamples = 1000;
+        int periodSamples = sampleRate / 4;
         double[] withSwitching = convolution.with(signal, List.of(kernel1, kernel2), periodSamples);
 
         // At switch point, measure the error
