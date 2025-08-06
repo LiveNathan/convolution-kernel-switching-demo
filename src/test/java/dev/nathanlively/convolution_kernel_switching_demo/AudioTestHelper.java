@@ -35,6 +35,23 @@ public class AudioTestHelper {
         log.info("Audio file saved to {}", outputFileName);
         assertThat(outputPath).exists();
     }
+
+    public void assertContinuityThreshold(double[] signal, double maxDiscontinuity, String context) {
+        double maxJump = findMaxDiscontinuity(signal);
+        log.info("Max discontinuity in {}: {}", context, maxJump);
+        assertThat(maxJump)
+                .as("Audio discontinuity in %s should be below audible threshold", context)
+                .isLessThanOrEqualTo(maxDiscontinuity);
+    }
+
+    private double findMaxDiscontinuity(double[] signal) {
+        double maxJump = 0.0;
+        for (int i = 1; i < signal.length; i++) {
+            double jump = Math.abs(signal[i] - signal[i-1]);
+            maxJump = Math.max(maxJump, jump);
+        }
+        return maxJump;
+    }
 }
 
 final class AudioSignals {
