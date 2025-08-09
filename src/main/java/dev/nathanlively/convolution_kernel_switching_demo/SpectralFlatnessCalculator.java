@@ -17,6 +17,8 @@ public class SpectralFlatnessCalculator {
         double geometricMean = Math.exp(logSum / nonZero.length);
         double arithmeticMean = Arrays.stream(nonZero).average().orElse(0.0);
 
+        if (arithmeticMean == 0.0) return 0.0;
+
         return geometricMean / arithmeticMean;
     }
 }

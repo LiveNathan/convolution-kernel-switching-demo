@@ -156,4 +156,21 @@ public class SignalTransformer {
                 .map(kernel -> pad(kernel, maxLength))
                 .toList();
     }
+
+    public static double[] powerSpectrum(double[] signal) {
+        Complex[] fftResult = fft(pad(signal, CommonUtil.nextPowerOfTwo(signal.length)));
+
+        // Power spectrum is the squared magnitude of each complex value
+        // Only return the positive frequencies (first half + 1)
+        int powerSpectrumLength = fftResult.length / 2 + 1;
+        double[] powerSpectrum = new double[powerSpectrumLength];
+
+        for (int i = 0; i < powerSpectrumLength; i++) {
+            double real = fftResult[i].getReal();
+            double imag = fftResult[i].getImaginary();
+            powerSpectrum[i] = real * real + imag * imag;
+        }
+
+        return powerSpectrum;
+    }
 }
