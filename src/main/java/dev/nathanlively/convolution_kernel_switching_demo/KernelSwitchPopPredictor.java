@@ -1,9 +1,38 @@
 package dev.nathanlively.convolution_kernel_switching_demo;
 
+import org.apache.arrow.memory.util.CommonUtil;
+import org.apache.commons.numbers.complex.Complex;
+
 // https://claude.ai/chat/e731fc8f-503f-4ed9-8d6e-bb69c2a7629e
 public class KernelSwitchPopPredictor {
+    private static final double[] BARK_CENTER_FREQUENCIES = {
+            50, 150, 250, 350, 450, 570, 700, 840, 1000, 1170,
+            1370, 1600, 1850, 2150, 2500, 2900, 3400, 4000, 4800, 5800,
+            7000, 8500, 10500, 13500
+    };
+
+    private double calculateMaskingFactor(double[] spectrum) {
+        // Complex signals mask discontinuities better
+        SpectralFlatnessCalculator spectralFlatnessCalculator = new SpectralFlatnessCalculator();
+        double spectralFlatness = spectralFlatnessCalculator.calculateFlatness(spectrum);
+        // Returns 1.0 for pure tones, up to 3.0 for noise
+        return 1.0 + (2.0 * spectralFlatness);
+    }
+    private static final double[] BARK_DISCONTINUITY_THRESHOLDS = {
+            0.012, 0.015, 0.018, 0.025, 0.035, 0.045, 0.055, 0.065,
+            0.070, 0.075, 0.080, 0.085, 0.090, 0.095, 0.100, 0.110,
+            0.120, 0.130, 0.140, 0.150, 0.160, 0.170, 0.180, 0.200
+    };
+    // Add these fields and constants at the class level
+    private final int sampleRate;
+
+    // Add constructor
+    public KernelSwitchPopPredictor(int sampleRate) {
+        this.sampleRate = sampleRate;
+    }
+
     public double predictAudibility(double[] signal, double[] currentKernel,
-                                       double[] candidateKernel, int switchIndex) {
+                                    double[] candidateKernel, int switchIndex) {
         // 1. Calculate the actual discontinuity at switch point
         double currentOutput = convolve(signal, currentKernel, switchIndex);
         double candidateOutput = convolve(signal, candidateKernel, switchIndex);
@@ -12,17 +41,17 @@ public class KernelSwitchPopPredictor {
         // 2. Analyze frequency content around switch point
         int windowSize = 512;
         double[] analysisWindow = extractWindow(signal, switchIndex, windowSize);
-        double[] spectrum = fft(analysisWindow);
-        double[] powerSpectrum = SignalTransformer.powerSpectrum(analysisWindow);
+        double[] magnitude = fft(analysisWindow);
 
         // 3. Find dominant frequency to select threshold
-        int dominantBin = findPeakBin(spectrum);
+        int dominantBin = findPeakBin(magnitude);
         double dominantFreq = binToFrequency(dominantBin, sampleRate, windowSize);
 
         // 4. Get frequency-specific threshold
         double threshold = getThresholdForFrequency(dominantFreq);
 
         // 5. Apply masking adjustment based on signal complexity
+        double[] powerSpectrum = SignalTransformer.powerSpectrum(analysisWindow);
         double maskingFactor = calculateMaskingFactor(powerSpectrum);
         double effectiveThreshold = threshold * maskingFactor;
 
@@ -30,11 +59,85 @@ public class KernelSwitchPopPredictor {
         return rawDiscontinuity / effectiveThreshold;
     }
 
-    private double calculateMaskingFactor(double[] spectrum) {
-        // Complex signals mask discontinuities better
-        SpectralFlatnessCalculator spectralFlatnessCalculator = new SpectralFlatnessCalculator();
-        double spectralFlatness = spectralFlatnessCalculator.calculateFlatness(spectrum);
-        // Returns 1.0 for pure tones, up to 3.0 for noise
-        return 1.0 + (2.0 * spectralFlatness);
+    // Add these missing methods:
+    private double convolve(double[] signal, double[] kernel, int centerIndex) {
+        if (kernel.length == 1) {
+            // Simple gain kernel
+            return centerIndex >= 0 && centerIndex < signal.length
+                    ? signal[centerIndex] * kernel[0]
+                    : 0.0;
+        }
+
+        // Full convolution for longer kernels
+        double result = 0.0;
+        int halfKernel = kernel.length / 2;
+
+        for (int i = 0; i < kernel.length; i++) {
+            int signalIndex = centerIndex - halfKernel + i;
+            if (signalIndex >= 0 && signalIndex < signal.length) {
+                result += signal[signalIndex] * kernel[i];
+            }
+        }
+        return result;
+    }
+
+    private double[] extractWindow(double[] signal, int centerIndex, int windowSize) {
+        double[] window = new double[windowSize];
+        int halfWindow = windowSize / 2;
+
+        for (int i = 0; i < windowSize; i++) {
+            int signalIndex = centerIndex - halfWindow + i;
+            if (signalIndex >= 0 && signalIndex < signal.length) {
+                window[i] = signal[signalIndex];
+            }
+        }
+        return window;
+    }
+
+    private double[] fft(double[] signal) {
+        double[] paddedSignal = SignalTransformer.pad(signal,
+                CommonUtil.nextPowerOfTwo(signal.length));
+        Complex[] transform = SignalTransformer.fft(paddedSignal);
+
+        double[] magnitudes = new double[transform.length / 2];
+        for (int i = 0; i < magnitudes.length; i++) {
+            magnitudes[i] = transform[i].abs();
+        }
+        return magnitudes;
+    }
+
+    private int findPeakBin(double[] spectrum) {
+        int peakBin = 0;
+        double maxMagnitude = spectrum[0];
+
+        for (int i = 1; i < spectrum.length; i++) {
+            if (spectrum[i] > maxMagnitude) {
+                maxMagnitude = spectrum[i];
+                peakBin = i;
+            }
+        }
+        return peakBin;
+    }
+
+    private double binToFrequency(int bin, int sampleRate, int fftSize) {
+        return (double) bin * sampleRate / fftSize;
+    }
+
+    private double getThresholdForFrequency(double frequency) {
+        // Find the appropriate threshold using linear interpolation
+        for (int i = 0; i < BARK_CENTER_FREQUENCIES.length - 1; i++) {
+            if (frequency <= BARK_CENTER_FREQUENCIES[i + 1]) {
+                double f1 = BARK_CENTER_FREQUENCIES[i];
+                double f2 = BARK_CENTER_FREQUENCIES[i + 1];
+                double t1 = BARK_DISCONTINUITY_THRESHOLDS[i];
+                double t2 = BARK_DISCONTINUITY_THRESHOLDS[i + 1];
+
+                // Linear interpolation
+                double ratio = (frequency - f1) / (f2 - f1);
+                return t1 + ratio * (t2 - t1);
+            }
+        }
+        // Above highest frequency
+        return BARK_DISCONTINUITY_THRESHOLDS[BARK_DISCONTINUITY_THRESHOLDS.length - 1];
     }
 }
