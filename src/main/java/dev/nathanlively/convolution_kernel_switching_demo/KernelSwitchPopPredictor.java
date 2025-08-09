@@ -32,7 +32,8 @@ public class KernelSwitchPopPredictor {
 
     private double calculateMaskingFactor(double[] spectrum) {
         // Complex signals mask discontinuities better
-        double spectralFlatness = calculateSpectralFlatness(spectrum);
+        SpectralFlatnessCalculator spectralFlatnessCalculator = new SpectralFlatnessCalculator();
+        double spectralFlatness = spectralFlatnessCalculator.calculateFlatness(spectrum);
         // Returns 1.0 for pure tones, up to 3.0 for noise
         return 1.0 + (2.0 * spectralFlatness);
     }
