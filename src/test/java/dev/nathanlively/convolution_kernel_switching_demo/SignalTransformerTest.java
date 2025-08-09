@@ -54,8 +54,6 @@ class SignalTransformerTest {
         assertThat(freqEnergy).isCloseTo(timeEnergy, within(1e-10));
     }
 
-
-
     @Test
     void powerSpectrumOfPureSine() {
         // Pure sine should have a peak at its frequency
