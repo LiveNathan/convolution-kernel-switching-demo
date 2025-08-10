@@ -94,28 +94,43 @@ class KernelSwitchPopPredictorTest {
     }
 
     @Test
-    void givenPureTone_whenCalculateNormalizedFlux_thenLowFlux() throws Exception {
+    void givenPureTone_whenCalculateNormalizedFlux_thenReturnLowFlux() throws Exception {
         final double[] sineWaveSignal = new AudioSignalBuilder()
                 .withLength(512)
                 .withSampleRate(SAMPLE_RATE)
                 .withSineWave(100, 0.8).build();
         double spectralFlux = fluxCalc.calculateAverageFlux(sineWaveSignal);
+        System.out.println("Pure tone flux: " + spectralFlux);
 
         double actual = predictor.normalizedFlux(spectralFlux);
 
-        assertThat(actual).isCloseTo(0, offset(1.0));
+        assertThat(actual).isCloseTo(0, offset(0.01));
     }
 
     @Test
-    void givenWhiteNoise_whenCalculateMaskingFactor_thenReturn3() throws Exception {
+    void givenJungleMusic_whenCalculateMaskingFactor_thenReturnHighFlux() throws Exception {
         String fileName = "crossing.wav";
         WavFile testAudio = audioHelper.loadFromClasspath(fileName);
         double[] powerSpectrum = SignalTransformer.powerSpectrum(testAudio.signal());
         double spectralFlux = fluxCalc.calculateAverageFlux(powerSpectrum);
+        System.out.println("Jungle flux: " + spectralFlux);
 
-        double actual = predictor.calculateMaskingFactorWithFlux(powerSpectrum, spectralFlux);
+        double actual = predictor.normalizedFlux(spectralFlux);
 
-        assertThat(actual).isCloseTo(3, offset(0.1));
+        assertThat(actual).isCloseTo(1, offset(0.1));
+    }
+
+    @Test
+    void givenAmbientMusic_whenCalculateMaskingFactor_thenReturnLowFlux() throws Exception {
+        String fileName = "ambient.wav";
+        WavFile testAudio = audioHelper.loadFromClasspath(fileName);
+        double[] powerSpectrum = SignalTransformer.powerSpectrum(testAudio.signal());
+        double spectralFlux = fluxCalc.calculateAverageFlux(powerSpectrum);
+        System.out.println("Ambient flux: " + spectralFlux);
+
+        double actual = predictor.normalizedFlux(spectralFlux);
+
+        assertThat(actual).isCloseTo(0.2, offset(0.1));
     }
 
 }

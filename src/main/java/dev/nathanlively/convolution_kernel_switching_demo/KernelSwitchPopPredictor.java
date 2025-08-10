@@ -77,8 +77,7 @@ public class KernelSwitchPopPredictor {
     }
 
     double normalizedFlux(double spectralFlux) {
-        double normalizedFlux = Math.min(1.0, spectralFlux / 50.0);
-        return normalizedFlux;
+        return Math.min(1.0, spectralFlux / 3000000);
     }
 
     // Add these missing methods:
