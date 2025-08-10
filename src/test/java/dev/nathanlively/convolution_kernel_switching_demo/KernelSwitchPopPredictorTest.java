@@ -4,6 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.offset;
 
 class KernelSwitchPopPredictorTest {
     private static final int SAMPLE_RATE = 44100;
@@ -63,6 +64,19 @@ class KernelSwitchPopPredictorTest {
                 highFreqSignal, kernel1, kernel2, highFreqSwitchIndex);
 
         assertThat(highFreqAudibility).isLessThan(lowFreqAudibility);
+    }
+
+    @Test
+    void givenPureTone_whenCalculateMaskingFactor_thenReturn1() throws Exception {
+        final double[] sineWaveSignal = new AudioSignalBuilder()
+                .withLength(512)
+                .withSampleRate(SAMPLE_RATE)
+                .withSineWave(100, 0.8).build();
+        double[] powerSpectrum = SignalTransformer.powerSpectrum(sineWaveSignal);
+
+        double actual =predictor.calculateMaskingFactor(powerSpectrum) ;
+        
+        assertThat(actual).isCloseTo(1, offset(0.01));
     }
 
 }
