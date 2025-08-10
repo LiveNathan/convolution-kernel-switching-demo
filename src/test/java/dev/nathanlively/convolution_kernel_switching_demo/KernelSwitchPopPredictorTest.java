@@ -66,6 +66,15 @@ class KernelSwitchPopPredictorTest {
         assertThat(highFreqAudibility).isLessThan(lowFreqAudibility);
     }
 
+    // Multiply base threshold by these factors
+//    private static final double CONTENT_MULTIPLIERS = {
+//            1.0,   // Pure tone (no adjustment)
+//            1.5,   // Harmonic content (musical instruments)
+//            2.0,   // Speech
+//            2.5,   // Ambient/textured sounds
+//            3.0    // Noise/percussion
+//    };
+
     @Test
     void givenPureTone_whenCalculateMaskingFactor_thenReturn1() throws Exception {
         final double[] sineWaveSignal = new AudioSignalBuilder()
@@ -77,6 +86,19 @@ class KernelSwitchPopPredictorTest {
         double actual =predictor.calculateMaskingFactor(powerSpectrum) ;
         
         assertThat(actual).isCloseTo(1, offset(0.01));
+    }
+
+    @Test
+    void givenWhiteNoise_whenCalculateMaskingFactor_thenReturn3() throws Exception {
+        final double[] sineWaveSignal = new AudioSignalBuilder()
+                .withLength(512)
+                .withSampleRate(SAMPLE_RATE)
+                .withWhiteNoise(0.8).build();
+        double[] powerSpectrum = SignalTransformer.powerSpectrum(sineWaveSignal);
+
+        double actual =predictor.calculateMaskingFactor(powerSpectrum) ;
+
+        assertThat(actual).isCloseTo(3, offset(0.01));
     }
 
 }
