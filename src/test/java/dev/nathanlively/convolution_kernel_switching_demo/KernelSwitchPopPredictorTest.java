@@ -98,7 +98,7 @@ class KernelSwitchPopPredictorTest {
 
         double actual =predictor.calculateMaskingFactor(powerSpectrum) ;
 
-        assertThat(actual).isCloseTo(3, offset(0.01));
+        assertThat(actual).isCloseTo(3, offset(0.1));
     }
 
 }

@@ -12,12 +12,18 @@ public class KernelSwitchPopPredictor {
     };
 
     double calculateMaskingFactor(double[] spectrum) {
-        // Complex signals mask discontinuities better
         SpectralFlatnessCalculator spectralFlatnessCalculator = new SpectralFlatnessCalculator();
+        SpectralCrestCalculator crestCalc = new SpectralCrestCalculator();
         double spectralFlatness = spectralFlatnessCalculator.calculateFlatness(spectrum);
-        // Returns 1.0 for pure tones, up to 3.0 for noise
-        return 1.0 + (2.0 * spectralFlatness);
+
+        // Logarithmic mapping works better across orders of magnitude
+        double logFlatness = Math.log10(Math.max(1e-4, spectralFlatness));
+        // logFlatness ranges from ~-4 (tonal) to ~-0.2 (noise)
+        double normalizedLog = Math.min(1.0, Math.max(0.0, (logFlatness + 4.0) / 3.8));
+
+        return 1.0 + (2.0 * normalizedLog);
     }
+
     private static final double[] BARK_DISCONTINUITY_THRESHOLDS = {
             0.012, 0.015, 0.018, 0.025, 0.035, 0.045, 0.055, 0.065,
             0.070, 0.075, 0.080, 0.085, 0.090, 0.095, 0.100, 0.110,

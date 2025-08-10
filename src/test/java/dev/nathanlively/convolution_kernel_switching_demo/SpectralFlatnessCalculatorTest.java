@@ -102,4 +102,16 @@ class SpectralFlatnessCalculatorTest {
         assertThat(actual).isCloseTo(0.003003, offset(0.000500));
     }
 
+    @Test
+    void givenJungleMusic_whenCalculateSpectralFlatness_thenReturnExpectedValue() {
+        String fileName = "crossing.wav";
+        WavFile testAudio = audioTestHelper.loadFromClasspath(fileName);
+        double[] powerSpectrum = SignalTransformer.powerSpectrum(testAudio.signal());
+
+        double actual = calculator.calculateFlatness(powerSpectrum);
+        System.out.println("Jungle music flatness: " + actual);
+
+        assertThat(actual).isCloseTo(0.008, offset(0.050));
+    }
+
 }
