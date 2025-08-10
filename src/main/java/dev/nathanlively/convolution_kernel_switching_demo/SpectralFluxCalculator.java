@@ -5,6 +5,7 @@ import org.apache.commons.numbers.complex.Complex;
 public class SpectralFluxCalculator {
     private static final int WINDOW_SIZE = 512;
     private static final int HOP_SIZE = WINDOW_SIZE / 4; // 75% overlap
+    private static final double NORMALIZATION_FACTOR = 6.0E-6; // Based on actual observed max values
 
     public double calculateAverageFlux(double[] signal) {
         if (signal.length < WINDOW_SIZE * 2) {
@@ -46,7 +47,8 @@ public class SpectralFluxCalculator {
             previousMagnitudes = magnitudes;
         }
 
-        return fluxCount > 0 ? totalFlux / fluxCount : 0.0;
+        double rawFlux = fluxCount > 0 ? totalFlux / fluxCount : 0.0;
+        return Math.min(1.0, rawFlux / NORMALIZATION_FACTOR);
     }
 
     private double[] createHannWindow(int length) {
