@@ -4,26 +4,38 @@ public class MaskingFactorCalculator {
     private final SpectralFlatnessCalculator flatnessCalc = new SpectralFlatnessCalculator();
     private final SpectralCrestCalculator crestCalc = new SpectralCrestCalculator();
 
-    public double calculateMaskingFactor(double[] powerSpectrum) {
-        double flatness = flatnessCalc.calculateFlatness(powerSpectrum);
-        double crest = crestCalc.calculateCrest(powerSpectrum);
+    double calculateMaskingFactor(double[] spectrum) {
+        SpectralFlatnessCalculator spectralFlatnessCalculator = new SpectralFlatnessCalculator();
+        SpectralCrestCalculator crestCalc = new SpectralCrestCalculator();
+        double spectralFlatness = spectralFlatnessCalculator.calculateFlatness(spectrum);
+        double spectralCrest = crestCalc.calculateCrest(spectrum);
 
-        // Normalize flatness using logarithmic mapping (from your original implementation)
-        double logFlatness = Math.log10(Math.max(1e-4, flatness));
-        double normalizedFlatness = Math.min(1.0, Math.max(0.0, (logFlatness + 4.0) / 3.8));
+        // Pure tones: very low flatness AND moderate crest (concentrated energy)
+        if (spectralFlatness < 0.01 && spectralCrest > 300 && spectralCrest < 5000) {
+            return 1.0;
+        }
 
-        // Normalize crest: higher crest = more tonal = less masking
-        // Using empirical scaling factor based on MATLAB analysis (range 8.7 to 13,541)
-        double normalizedCrest = 1.0 / (1.0 + crest * 0.0001);
+        // White noise: high flatness, low crest
+        if (spectralFlatness > 0.3) {
+            return 3.0;
+        }
 
-        // Combine both measures
-        // Higher values = more noise-like = more masking
-        double combinedMeasure = 0.8 * normalizedFlatness + 0.2 * normalizedCrest;
+        // Transient/percussive content: very high spectral crest (>5000)
+        // indicates spiky spectrum from transients
+        if (spectralCrest > 5000) {
+            // Jungle, EDM, and other transient-rich music
+            if (spectralCrest > 10000) {
+                return 2.8 + Math.min(0.2, (spectralCrest - 10000) / 20000);
+            }
+            // Map crest 5000-10000 to factor 2.0-2.8
+            return 2.0 + 0.8 * (spectralCrest - 5000) / 5000;
+        }
 
-        // Map to masking factor range [1.0, 3.0]
-        // 1.0 = minimal masking (pure tones)
-        // 3.0 = maximum masking (white noise)
-        return 1.0 + (2.0 * combinedMeasure);
+        // Default case: use spectral flatness with adjusted mapping
+        // This handles speech and other moderate content
+        double logFlatness = Math.log10(Math.max(1e-4, spectralFlatness));
+        double normalizedLog = Math.min(1.0, Math.max(0.0, (logFlatness + 3.5) / 3.0));
+        return 1.5 + normalizedLog;
     }
 
     /**

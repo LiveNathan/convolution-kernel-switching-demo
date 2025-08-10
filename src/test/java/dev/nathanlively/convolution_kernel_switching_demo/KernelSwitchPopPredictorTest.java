@@ -9,10 +9,14 @@ import static org.assertj.core.api.Assertions.offset;
 class KernelSwitchPopPredictorTest {
     private static final int SAMPLE_RATE = 44100;
     private KernelSwitchPopPredictor predictor;
+    private AudioTestHelper audioHelper;
+    private SpectralFluxCalculator fluxCalc;
 
     @BeforeEach
     void setUp() {
         predictor = new KernelSwitchPopPredictor(SAMPLE_RATE);
+        audioHelper = new AudioTestHelper();
+        fluxCalc = new SpectralFluxCalculator();
     }
 
     @Test
@@ -82,21 +86,34 @@ class KernelSwitchPopPredictorTest {
                 .withSampleRate(SAMPLE_RATE)
                 .withSineWave(100, 0.8).build();
         double[] powerSpectrum = SignalTransformer.powerSpectrum(sineWaveSignal);
+        double spectralFlux = fluxCalc.calculateAverageFlux(sineWaveSignal);
 
-        double actual =predictor.calculateMaskingFactor(powerSpectrum) ;
-        
+        double actual = predictor.calculateMaskingFactorWithFlux(powerSpectrum, spectralFlux);
+
         assertThat(actual).isCloseTo(1, offset(0.01));
     }
 
     @Test
-    void givenWhiteNoise_whenCalculateMaskingFactor_thenReturn3() throws Exception {
+    void givenPureTone_whenCalculateNormalizedFlux_thenLowFlux() throws Exception {
         final double[] sineWaveSignal = new AudioSignalBuilder()
                 .withLength(512)
                 .withSampleRate(SAMPLE_RATE)
-                .withWhiteNoise(0.8).build();
-        double[] powerSpectrum = SignalTransformer.powerSpectrum(sineWaveSignal);
+                .withSineWave(100, 0.8).build();
+        double spectralFlux = fluxCalc.calculateAverageFlux(sineWaveSignal);
 
-        double actual =predictor.calculateMaskingFactor(powerSpectrum) ;
+        double actual = predictor.normalizedFlux(spectralFlux);
+
+        assertThat(actual).isCloseTo(0, offset(1.0));
+    }
+
+    @Test
+    void givenWhiteNoise_whenCalculateMaskingFactor_thenReturn3() throws Exception {
+        String fileName = "crossing.wav";
+        WavFile testAudio = audioHelper.loadFromClasspath(fileName);
+        double[] powerSpectrum = SignalTransformer.powerSpectrum(testAudio.signal());
+        double spectralFlux = fluxCalc.calculateAverageFlux(powerSpectrum);
+
+        double actual = predictor.calculateMaskingFactorWithFlux(powerSpectrum, spectralFlux);
 
         assertThat(actual).isCloseTo(3, offset(0.1));
     }

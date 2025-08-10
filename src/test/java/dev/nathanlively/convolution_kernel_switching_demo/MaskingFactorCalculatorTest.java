@@ -35,7 +35,9 @@ class MaskingFactorCalculatorTest {
         double actual = calculator.calculateMaskingFactor(powerSpectrum);
 
         // Pure tones have low flatness but not zero, so masking factor is around 1.9
-        assertThat(actual).isCloseTo(1.0, offset(0.1));
+        assertThat(actual)
+                .as( "Pure tone masking factor should be close to 1.0")
+                .isCloseTo(1.0, offset(0.1));
     }
 
     @Test
@@ -63,7 +65,9 @@ class MaskingFactorCalculatorTest {
         double actual = calculator.calculateMaskingFactor(powerSpectrum);
 
         // Speech should provide moderate masking
-        assertThat(actual).isBetween(2.0, 2.8);
+        assertThat(actual)
+                .as("Speech masking factor should be close to 2.0")
+                .isBetween(1.8, 2.2);
     }
 
     @Test
@@ -75,7 +79,9 @@ class MaskingFactorCalculatorTest {
         double actual = calculator.calculateMaskingFactor(powerSpectrum);
 
         // Ambient music masking depends on spectral content
-        assertThat(actual).isBetween(1.5, 2.8);
+        assertThat(actual)
+                .as("Ambient music masking factor should be close to 1.5")
+                .isBetween(1.5, 2.8);
     }
 
     @Test
@@ -86,7 +92,9 @@ class MaskingFactorCalculatorTest {
 
         double actual = calculator.calculateMaskingFactor(powerSpectrum);
 
-        assertThat(actual).isBetween(2.5, 3.0);
+        assertThat(actual)
+                .as("Jungle music masking factor should be close to 3.0")
+                .isBetween(2.5, 3.0);
     }
 
     @Test

@@ -12,10 +12,6 @@ public class KernelSwitchPopPredictor {
             7000, 8500, 10500, 13500
     };
 
-    double calculateMaskingFactor(double[] spectrum) {
-        return maskingCalc.calculateMaskingFactor(spectrum);
-    }
-
     private static final double[] BARK_DISCONTINUITY_THRESHOLDS = {
             0.012, 0.015, 0.018, 0.025, 0.035, 0.045, 0.055, 0.065,
             0.070, 0.075, 0.080, 0.085, 0.090, 0.095, 0.100, 0.110,
@@ -50,11 +46,39 @@ public class KernelSwitchPopPredictor {
 
         // 5. Apply masking adjustment based on signal complexity
         double[] powerSpectrum = SignalTransformer.powerSpectrum(analysisWindow);
-        double maskingFactor = calculateMaskingFactor(powerSpectrum);
+        SpectralFluxCalculator fluxCalc = new SpectralFluxCalculator();
+        double spectralFlux = fluxCalc.calculateAverageFlux(analysisWindow);
+        double maskingFactor = calculateMaskingFactorWithFlux(powerSpectrum, spectralFlux);
         double effectiveThreshold = threshold * maskingFactor;
 
         // 6. Return perceptual impact (0 = inaudible, >1 = clearly audible)
         return rawDiscontinuity / effectiveThreshold;
+    }
+
+    double calculateMaskingFactorWithFlux(double[] spectrum, double spectralFlux) {
+        SpectralFlatnessCalculator flatnessCalc = new SpectralFlatnessCalculator();
+        double spectralFlatness = flatnessCalc.calculateFlatness(spectrum);
+
+        // Normalize flux (typical range 0-100 based on content)
+        final double normalizedFlux = normalizedFlux(spectralFlux);
+
+        // High flux = transient content = more masking
+        // Low flux = steady state = less masking
+
+        if (spectralFlatness > 0.3) {
+            return 3.0; // White noise
+        }
+
+        // For tonal content, use flux to distinguish:
+        // Pure tone: low flatness, near-zero flux -> factor 1.0
+        // Jungle: low-med flatness, high flux -> factor 3.0
+
+        return 1.0 + (2.0 * normalizedFlux);
+    }
+
+    double normalizedFlux(double spectralFlux) {
+        double normalizedFlux = Math.min(1.0, spectralFlux / 50.0);
+        return normalizedFlux;
     }
 
     // Add these missing methods:
