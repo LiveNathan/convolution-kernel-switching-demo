@@ -5,6 +5,7 @@ import org.apache.commons.numbers.complex.Complex;
 
 // https://claude.ai/chat/e731fc8f-503f-4ed9-8d6e-bb69c2a7629e
 public class KernelSwitchPopPredictor {
+    private final MaskingFactorCalculator maskingCalc = new MaskingFactorCalculator();
     private static final double[] BARK_CENTER_FREQUENCIES = {
             50, 150, 250, 350, 450, 570, 700, 840, 1000, 1170,
             1370, 1600, 1850, 2150, 2500, 2900, 3400, 4000, 4800, 5800,
@@ -12,16 +13,7 @@ public class KernelSwitchPopPredictor {
     };
 
     double calculateMaskingFactor(double[] spectrum) {
-        SpectralFlatnessCalculator spectralFlatnessCalculator = new SpectralFlatnessCalculator();
-        SpectralCrestCalculator crestCalc = new SpectralCrestCalculator();
-        double spectralFlatness = spectralFlatnessCalculator.calculateFlatness(spectrum);
-
-        // Logarithmic mapping works better across orders of magnitude
-        double logFlatness = Math.log10(Math.max(1e-4, spectralFlatness));
-        // logFlatness ranges from ~-4 (tonal) to ~-0.2 (noise)
-        double normalizedLog = Math.min(1.0, Math.max(0.0, (logFlatness + 4.0) / 3.8));
-
-        return 1.0 + (2.0 * normalizedLog);
+        return maskingCalc.calculateMaskingFactor(spectrum);
     }
 
     private static final double[] BARK_DISCONTINUITY_THRESHOLDS = {
