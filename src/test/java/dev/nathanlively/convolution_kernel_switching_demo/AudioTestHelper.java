@@ -20,7 +20,7 @@ public class AudioTestHelper {
 
     public WavFile loadFromClasspath(String fileName) {
         WavFileReader.MultiChannelWavFile multiChannel = reader.loadFromClasspath(fileName);
-        log.info("Signal WAV properties: channels={}, sampleRate={}, length={}",
+        log.debug("Signal WAV properties: channels={}, sampleRate={}, length={}",
                 multiChannel.channelCount(), multiChannel.sampleRate(), multiChannel.length());
 
         return new WavFile(multiChannel.sampleRate(), multiChannel.getChannel(0));

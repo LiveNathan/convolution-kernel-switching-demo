@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Random;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.offset;
 
 class SpectralFlatnessCalculatorTest {
 
@@ -30,7 +31,7 @@ class SpectralFlatnessCalculatorTest {
         double[] powerSpectrum = SignalTransformer.powerSpectrum(noise);
 
         double actual = calculator.calculateFlatness(powerSpectrum);
-        System.out.println("Flatness: " + actual);
+        System.out.println("Noise Flatness: " + actual);
 
         // Based on manual FFT MATLAB analysis: white noise typically 0.52-0.61
         assertThat(actual).isBetween(0.52, 0.615);
@@ -47,6 +48,7 @@ class SpectralFlatnessCalculatorTest {
         double[] powerSpectrum = SignalTransformer.powerSpectrum(sine);
 
         double actual = calculator.calculateFlatness(powerSpectrum);
+        System.out.println("Sine Flatness: " + actual);
 
         // Based on manual FFT: pure tone should be around 0.002
         assertThat(actual).isLessThan(0.003);
@@ -59,9 +61,21 @@ class SpectralFlatnessCalculatorTest {
         double[] powerSpectrum = SignalTransformer.powerSpectrum(testAudio.signal());
 
         double actual = calculator.calculateFlatness(powerSpectrum);
-        System.out.println("Flatness: " + actual);
+        System.out.println("EDM Flatness: " + actual);
 
-        assertThat(actual).isEqualTo(1.5);
+        assertThat(actual).isCloseTo(0.000175, offset(0.000050));
+    }
+
+    @Test
+    void givenAcousticMusic_whenCalculateSpectralFlatness_thenReturnExpectedValue() {
+        String fileName = "daises.wav";
+        WavFile testAudio = audioTestHelper.loadFromClasspath(fileName);
+        double[] powerSpectrum = SignalTransformer.powerSpectrum(testAudio.signal());
+
+        double actual = calculator.calculateFlatness(powerSpectrum);
+        System.out.println("Acoustic Flatness: " + actual);
+
+        assertThat(actual).isCloseTo(0.000, offset(0.050));
     }
 
     @Test
@@ -71,20 +85,21 @@ class SpectralFlatnessCalculatorTest {
         double[] powerSpectrum = SignalTransformer.powerSpectrum(testAudio.signal());
 
         double actual = calculator.calculateFlatness(powerSpectrum);
-        System.out.println("Flatness: " + actual);
+        System.out.println("Speech Flatness: " + actual);
 
-        assertThat(actual).isEqualTo(2.0);
+        assertThat(actual).isCloseTo(0.002713, offset(0.000500));
     }
 
     @Test
     void givenAmbientMusic_whenCalculateSpectralFlatness_thenReturnExpectedValue() {
-        String fileName = "ambient.wav";
+        String fileName = "ambient6s.wav";
         WavFile testAudio = audioTestHelper.loadFromClasspath(fileName);
         double[] powerSpectrum = SignalTransformer.powerSpectrum(testAudio.signal());
 
         double actual = calculator.calculateFlatness(powerSpectrum);
-        System.out.println("Flatness: " + actual);
+        System.out.println("Ambient music flatness: " + actual);
 
-        assertThat(actual).isEqualTo(2.5);
+        assertThat(actual).isCloseTo(0.003003, offset(0.000500));
     }
+
 }
