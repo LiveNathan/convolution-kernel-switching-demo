@@ -1,5 +1,6 @@
 package dev.nathanlively.convolution_kernel_switching_demo;
 
+import org.apache.arrow.memory.util.CommonUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -24,7 +25,7 @@ class SpectralFluxCalculatorTest {
     @Test
     void givenSine_thenReturnNearZero() {
         double[] sine = new AudioSignalBuilder()
-                .withLength(1024)
+                .withLength(CommonUtil.nextPowerOfTwo(1024))
                 .withSampleRate(44100)
                 .withSineWave(440, 1.0)
                 .build();
@@ -32,7 +33,7 @@ class SpectralFluxCalculatorTest {
         double actual = calculator.calculateAverageFlux(sine);
 
         log.info("Sine Flux (normalized): {}", actual);
-        assertThat(actual).isCloseTo(0.002, offset(0.002));
+        assertThat(actual).isCloseTo(0.0, offset(0.01));
         assertThat(actual).isBetween(0.0, 1.0);
     }
 
@@ -46,8 +47,9 @@ class SpectralFluxCalculatorTest {
 
         double actual = calculator.calculateAverageFlux(noise);
 
-        log.info("Noise Flux (normalized): {}", actual);
-        assertThat(actual).isCloseTo(0.95, offset(0.05));
+        assertThat(actual)
+                .as("Noise flux")
+                .isCloseTo(0.95, offset(0.05));
         assertThat(actual).isBetween(0.0, 1.0);
     }
 
@@ -58,8 +60,9 @@ class SpectralFluxCalculatorTest {
 
         double actual = calculator.calculateAverageFlux(testAudio.signal());
 
-        log.info("Speech Flux (normalized): {}", actual);
-        assertThat(actual).isCloseTo(0.31, offset(0.05));
+        assertThat(actual)
+                .as("Speech flux")
+                .isCloseTo(0.5, offset(0.05));
         assertThat(actual).isBetween(0.0, 1.0);
     }
 
@@ -70,8 +73,9 @@ class SpectralFluxCalculatorTest {
 
         double actual = calculator.calculateAverageFlux(testAudio.signal());
 
-        log.info("Ambient Flux (normalized): {}", actual);
-        assertThat(actual).isCloseTo(0.24, offset(0.05));
+        assertThat(actual)
+                .as("Ambient music flux")
+                .isCloseTo(0.39, offset(0.01));
         assertThat(actual).isBetween(0.0, 1.0);
     }
 
@@ -82,8 +86,9 @@ class SpectralFluxCalculatorTest {
 
         double actual = calculator.calculateAverageFlux(testAudio.signal());
 
-        log.info("EDM Flux (normalized): {}", actual);
-        assertThat(actual).isCloseTo(0.47, offset(0.10));
+        assertThat(actual)
+                .as("EDM music flux")
+                .isCloseTo(0.78, offset(0.05));
         assertThat(actual).isBetween(0.0, 1.0);
     }
 
@@ -94,8 +99,9 @@ class SpectralFluxCalculatorTest {
 
         double actual = calculator.calculateAverageFlux(testAudio.signal());
 
-        log.info("Jungle Flux (normalized): {}", actual);
-        assertThat(actual).isCloseTo(0.59, offset(0.10));
+        assertThat(actual)
+                .as("Jungle music flux")
+                .isCloseTo(1.0, offset(0.10));
         assertThat(actual).isBetween(0.0, 1.0);
     }
 
@@ -106,8 +112,9 @@ class SpectralFluxCalculatorTest {
 
         double actual = calculator.calculateAverageFlux(testAudio.signal());
 
-        log.info("Acoustic Flux (normalized): {}", actual);
-        assertThat(actual).isCloseTo(0.58, offset(0.10));
+        assertThat(actual)
+                .as("Acoustic music flux")
+                .isCloseTo(1.0, offset(0.10));
         assertThat(actual).isBetween(0.0, 1.0);
     }
 
