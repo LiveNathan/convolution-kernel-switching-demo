@@ -32,27 +32,56 @@ public class KernelSwitchPopPredictor {
         double candidateOutput = convolve(signal, candidateKernel, switchIndex);
         double rawDiscontinuity = Math.abs(candidateOutput - currentOutput);
 
-        // 2. Analyze frequency content around switch point
-        int windowSize = 512;
-        double[] analysisWindow = extractWindow(signal, switchIndex, windowSize);
-        double[] magnitude = fft(analysisWindow);
+        // 2. Extract larger context for spectral flux calculation
+        int fluxContextSize = 2048;  // Enough for ~12 flux frames
+        double[] fluxContext = extractSegment(signal, switchIndex, fluxContextSize);
 
-        // 3. Find dominant frequency to select threshold
+        // 3. Calculate spectral flux on the larger context
+        SpectralFluxCalculator fluxCalc = new SpectralFluxCalculator();
+        double spectralFlux = fluxCalc.normalizedAverageFlux(fluxContext);
+
+        // 4. For frequency analysis, use smaller window centered on switch
+        int analysisWindowSize = 512;
+        double[] analysisSegment = extractSegment(signal, switchIndex, analysisWindowSize);
+
+        // Apply windowing for FFT
+        double[] hannWindow = SignalTransformer.createHannWindow(analysisWindowSize);
+        double[] windowedSegment = new double[analysisWindowSize];
+        for (int i = 0; i < analysisWindowSize; i++) {
+            windowedSegment[i] = analysisSegment[i] * hannWindow[i];
+        }
+
+        // 5. Get magnitude spectrum and power spectrum from windowed segment
+        double[] magnitude = fft(windowedSegment);
+        double[] powerSpectrum = SignalTransformer.powerSpectrum(windowedSegment);
+
+        // 6. Find dominant frequency to select threshold
         int dominantBin = findPeakBin(magnitude);
-        double dominantFreq = binToFrequency(dominantBin, sampleRate, windowSize);
+        double dominantFreq = binToFrequency(dominantBin, sampleRate, analysisWindowSize);
 
-        // 4. Get frequency-specific threshold
+        // 7. Get frequency-specific threshold
         double threshold = getThresholdForFrequency(dominantFreq);
 
-        // 5. Apply masking adjustment based on signal complexity
-        double[] powerSpectrum = SignalTransformer.powerSpectrum(analysisWindow);
-        SpectralFluxCalculator fluxCalc = new SpectralFluxCalculator();
-        double spectralFlux = fluxCalc.normalizedAverageFlux(analysisWindow);
+        // 8. Apply masking adjustment using both power spectrum and flux
         double maskingFactor = calculateMaskingFactorWithFlux(powerSpectrum, spectralFlux);
         double effectiveThreshold = threshold * maskingFactor;
 
-        // 6. Return perceptual impact (0 = inaudible, >1 = clearly audible)
+        // 9. Return perceptual impact
         return rawDiscontinuity / effectiveThreshold;
+    }
+
+    // Rename for clarity - this doesn't window, just extracts
+    private double[] extractSegment(double[] signal, int centerIndex, int segmentSize) {
+        double[] segment = new double[segmentSize];
+        int halfSegment = segmentSize / 2;
+
+        for (int i = 0; i < segmentSize; i++) {
+            int signalIndex = centerIndex - halfSegment + i;
+            if (signalIndex >= 0 && signalIndex < signal.length) {
+                segment[i] = signal[signalIndex];
+            }
+        }
+        return segment;
     }
 
     double calculateMaskingFactorWithFlux(double[] spectrum, double normalizedAverageSpectralFlux) {
@@ -91,22 +120,9 @@ public class KernelSwitchPopPredictor {
         return result;
     }
 
-    private double[] extractWindow(double[] signal, int centerIndex, int windowSize) {
-        double[] window = new double[windowSize];
-        int halfWindow = windowSize / 2;
-
-        for (int i = 0; i < windowSize; i++) {
-            int signalIndex = centerIndex - halfWindow + i;
-            if (signalIndex >= 0 && signalIndex < signal.length) {
-                window[i] = signal[signalIndex];
-            }
-        }
-        return window;
-    }
-
     private double[] fft(double[] signal) {
-        double[] paddedSignal = SignalTransformer.pad(signal,
-                CommonUtil.nextPowerOfTwo(signal.length));
+        // Assume signal is already windowed if needed
+        double[] paddedSignal = SignalTransformer.pad(signal, CommonUtil.nextPowerOfTwo(signal.length));
         Complex[] transform = SignalTransformer.fft(paddedSignal);
 
         double[] magnitudes = new double[transform.length / 2];
