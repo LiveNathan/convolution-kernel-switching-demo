@@ -3,6 +3,8 @@ package dev.nathanlively.convolution_kernel_switching_demo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Random;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.offset;
 
@@ -91,6 +93,45 @@ class KernelSwitchPopPredictorTest {
         double actual = predictor.calculateMaskingFactorWithFlux(powerSpectrum, spectralFlux);
 
         assertThat(actual).isCloseTo(1, offset(0.01));
+    }
+
+    @Test
+    void givenNoise_whenCalculateMaskingFactor_thenReturn3() throws Exception {
+        double[] signal = new AudioSignalBuilder()
+                .withLength(512)
+                .withWhiteNoise(0.5)
+                .withRandom(new Random(42))
+                .build();
+        double[] powerSpectrum = SignalTransformer.powerSpectrum(signal);
+        double spectralFlux = fluxCalc.normalizedAverageFlux(signal);
+
+        double actual = predictor.calculateMaskingFactorWithFlux(powerSpectrum, spectralFlux);
+
+        assertThat(actual).isCloseTo(3, offset(0.01));
+    }
+
+    @Test
+    void givenJungleMusic_whenCalculateMaskingFactor_thenReturn3() throws Exception {
+        String fileName = "crossing.wav";
+        WavFile signal = audioHelper.loadFromClasspath(fileName);
+        double[] powerSpectrum = SignalTransformer.powerSpectrum(signal.signal());
+        double spectralFlux = fluxCalc.normalizedAverageFlux(signal.signal());
+
+        double actual = predictor.calculateMaskingFactorWithFlux(powerSpectrum, spectralFlux);
+
+        assertThat(actual).isCloseTo(3, offset(0.01));
+    }
+
+    @Test
+    void givenSpeech_whenCalculateMaskingFactor_thenReturn2() throws Exception {
+        String fileName = "Lecture5sec.wav";
+        WavFile signal = audioHelper.loadFromClasspath(fileName);
+        double[] powerSpectrum = SignalTransformer.powerSpectrum(signal.signal());
+        double spectralFlux = fluxCalc.normalizedAverageFlux(signal.signal());
+
+        double actual = predictor.calculateMaskingFactorWithFlux(powerSpectrum, spectralFlux);
+
+        assertThat(actual).isCloseTo(2, offset(0.04));
     }
 
 }

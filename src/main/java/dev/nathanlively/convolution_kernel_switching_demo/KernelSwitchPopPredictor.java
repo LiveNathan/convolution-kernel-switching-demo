@@ -56,20 +56,12 @@ public class KernelSwitchPopPredictor {
     }
 
     double calculateMaskingFactorWithFlux(double[] spectrum, double normalizedAverageSpectralFlux) {
+        // We really only need spectral flatness for noise because 512 samples is not long enough to give high spectral flux.
         SpectralFlatnessCalculator flatnessCalc = new SpectralFlatnessCalculator();
         double spectralFlatness = flatnessCalc.calculateFlatness(spectrum);
-
-        // High flux = transient content = more masking
-        // Low flux = steady state = less masking
-
         if (spectralFlatness > 0.3) {
             return 3.0; // White noise
         }
-
-        // For tonal content, use flux to distinguish:
-        // Pure tone: low flatness, near-zero flux -> factor 1.0
-        // Jungle: low-med flatness, high flux -> factor 3.0
-
         return 1.0 + (2.0 * normalizedAverageSpectralFlux);
     }
 
