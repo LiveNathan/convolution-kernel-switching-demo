@@ -47,7 +47,7 @@ public class KernelSwitchPopPredictor {
         // 5. Apply masking adjustment based on signal complexity
         double[] powerSpectrum = SignalTransformer.powerSpectrum(analysisWindow);
         SpectralFluxCalculator fluxCalc = new SpectralFluxCalculator();
-        double spectralFlux = fluxCalc.calculateAverageFlux(analysisWindow);
+        double spectralFlux = fluxCalc.normalizedAverageFlux(analysisWindow);
         double maskingFactor = calculateMaskingFactorWithFlux(powerSpectrum, spectralFlux);
         double effectiveThreshold = threshold * maskingFactor;
 
@@ -55,12 +55,9 @@ public class KernelSwitchPopPredictor {
         return rawDiscontinuity / effectiveThreshold;
     }
 
-    double calculateMaskingFactorWithFlux(double[] spectrum, double spectralFlux) {
+    double calculateMaskingFactorWithFlux(double[] spectrum, double normalizedAverageSpectralFlux) {
         SpectralFlatnessCalculator flatnessCalc = new SpectralFlatnessCalculator();
         double spectralFlatness = flatnessCalc.calculateFlatness(spectrum);
-
-        // Normalize flux (typical range 0-100 based on content)
-        final double normalizedFlux = normalizedFlux(spectralFlux);
 
         // High flux = transient content = more masking
         // Low flux = steady state = less masking
@@ -73,7 +70,7 @@ public class KernelSwitchPopPredictor {
         // Pure tone: low flatness, near-zero flux -> factor 1.0
         // Jungle: low-med flatness, high flux -> factor 3.0
 
-        return 1.0 + (2.0 * normalizedFlux);
+        return 1.0 + (2.0 * normalizedAverageSpectralFlux);
     }
 
     double normalizedFlux(double spectralFlux) {

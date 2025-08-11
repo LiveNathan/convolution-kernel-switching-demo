@@ -30,7 +30,7 @@ class SpectralFluxCalculatorTest {
                 .withSineWave(440, 1.0)
                 .build();
 
-        double actual = calculator.calculateAverageFlux(sine);
+        double actual = calculator.normalizedAverageFlux(sine);
 
         log.info("Sine Flux (normalized): {}", actual);
         assertThat(actual).isCloseTo(0.0, offset(0.01));
@@ -45,7 +45,7 @@ class SpectralFluxCalculatorTest {
                 .withRandom(new Random(42))
                 .build();
 
-        double actual = calculator.calculateAverageFlux(noise);
+        double actual = calculator.normalizedAverageFlux(noise);
 
         assertThat(actual)
                 .as("Noise flux")
@@ -58,7 +58,7 @@ class SpectralFluxCalculatorTest {
         String fileName = "Lecture5sec.wav";
         WavFile testAudio = audioHelper.loadFromClasspath(fileName);
 
-        double actual = calculator.calculateAverageFlux(testAudio.signal());
+        double actual = calculator.normalizedAverageFlux(testAudio.signal());
 
         assertThat(actual)
                 .as("Speech flux")
@@ -71,7 +71,7 @@ class SpectralFluxCalculatorTest {
         String fileName = "ambient6s.wav";
         WavFile testAudio = audioHelper.loadFromClasspath(fileName);
 
-        double actual = calculator.calculateAverageFlux(testAudio.signal());
+        double actual = calculator.normalizedAverageFlux(testAudio.signal());
 
         assertThat(actual)
                 .as("Ambient music flux")
@@ -84,7 +84,7 @@ class SpectralFluxCalculatorTest {
         String fileName = "you-cant-hide-6s.wav";
         WavFile testAudio = audioHelper.loadFromClasspath(fileName);
 
-        double actual = calculator.calculateAverageFlux(testAudio.signal());
+        double actual = calculator.normalizedAverageFlux(testAudio.signal());
 
         assertThat(actual)
                 .as("EDM music flux")
@@ -97,7 +97,7 @@ class SpectralFluxCalculatorTest {
         String fileName = "crossing.wav";
         WavFile testAudio = audioHelper.loadFromClasspath(fileName);
 
-        double actual = calculator.calculateAverageFlux(testAudio.signal());
+        double actual = calculator.normalizedAverageFlux(testAudio.signal());
 
         assertThat(actual)
                 .as("Jungle music flux")
@@ -110,7 +110,7 @@ class SpectralFluxCalculatorTest {
         String fileName = "daises.wav";
         WavFile testAudio = audioHelper.loadFromClasspath(fileName);
 
-        double actual = calculator.calculateAverageFlux(testAudio.signal());
+        double actual = calculator.normalizedAverageFlux(testAudio.signal());
 
         assertThat(actual)
                 .as("Acoustic music flux")
@@ -134,7 +134,7 @@ class SpectralFluxCalculatorTest {
         for (int i = 0; i < fileNames.length; i++) {
             try {
                 WavFile audio = audioHelper.loadFromClasspath(fileNames[i]);
-                double normalizedFlux = calculator.calculateAverageFlux(audio.signal());
+                double normalizedFlux = calculator.normalizedAverageFlux(audio.signal());
 
                 log.info("{}: Normalized Flux = {}", labels[i], normalizedFlux);
 
@@ -166,10 +166,10 @@ class SpectralFluxCalculatorTest {
         WavFile ambientAudio = audioHelper.loadFromClasspath("ambient6s.wav");
         WavFile edmAudio = audioHelper.loadFromClasspath("you-cant-hide-6s.wav");
 
-        double sineFlux = calculator.calculateAverageFlux(sine);
-        double noiseFlux = calculator.calculateAverageFlux(noise);
-        double ambientFlux = calculator.calculateAverageFlux(ambientAudio.signal());
-        double edmFlux = calculator.calculateAverageFlux(edmAudio.signal());
+        double sineFlux = calculator.normalizedAverageFlux(sine);
+        double noiseFlux = calculator.normalizedAverageFlux(noise);
+        double ambientFlux = calculator.normalizedAverageFlux(ambientAudio.signal());
+        double edmFlux = calculator.normalizedAverageFlux(edmAudio.signal());
 
         // Verify expected ordering: sine < ambient < edm < noise
         assertThat(sineFlux).isLessThan(ambientFlux);

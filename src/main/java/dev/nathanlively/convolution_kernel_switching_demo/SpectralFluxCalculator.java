@@ -7,13 +7,13 @@ public class SpectralFluxCalculator {
     private static final int HOP_SIZE = WINDOW_SIZE / 4; // 75% overlap
     private static final double NORMALIZATION_FACTOR = 14.253; // Based on actual observed max values
 
-    public double calculateAverageFlux(double[] signal) {
+    public double normalizedAverageFlux(double[] signal) {
         if (signal.length < WINDOW_SIZE * 2) {
             // Not enough data for meaningful flux calculation
             return 0.0;
         }
 
-        double[] window = createHannWindow(WINDOW_SIZE);
+        double[] window = SignalTransformer.createHannWindow(WINDOW_SIZE);
         double totalFlux = 0.0;
         int fluxCount = 0;
 
@@ -49,18 +49,6 @@ public class SpectralFluxCalculator {
 
         double rawFlux = fluxCount > 0 ? totalFlux / fluxCount : 0.0;
         return Math.min(1.0, rawFlux / NORMALIZATION_FACTOR);
-//        return rawFlux;
     }
 
-    private double[] createHannWindow(int length) {
-        if (length == 1) {
-            return new double[] { 1.0 };
-        }
-        double[] window = new double[length];
-        double denominator = length - 1.0;
-        for (int i = 0; i < length; i++) {
-            window[i] = 0.5 * (1.0 - Math.cos(2.0 * Math.PI * i / denominator));
-        }
-        return window;
-    }
 }

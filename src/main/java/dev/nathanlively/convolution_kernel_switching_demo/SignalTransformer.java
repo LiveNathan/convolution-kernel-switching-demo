@@ -173,4 +173,16 @@ public class SignalTransformer {
 
         return powerSpectrum;
     }
+
+    public static double[] createHannWindow(int length) {
+        if (length == 1) {
+            return new double[] { 1.0 };
+        }
+        double[] window = new double[length];
+        double denominator = length - 1.0;
+        for (int i = 0; i < length; i++) {
+            window[i] = 0.5 * (1.0 - Math.cos(2.0 * Math.PI * i / denominator));
+        }
+        return window;
+    }
 }
