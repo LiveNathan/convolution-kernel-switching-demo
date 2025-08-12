@@ -16,10 +16,8 @@ public class KernelSwitchPopPredictor {
             0.070, 0.075, 0.080, 0.085, 0.090, 0.095, 0.100, 0.110,
             0.120, 0.130, 0.140, 0.150, 0.160, 0.170, 0.180, 0.200
     };
-    // Add these fields and constants at the class level
     private final int sampleRate;
 
-    // Add constructor
     public KernelSwitchPopPredictor(int sampleRate) {
         this.sampleRate = sampleRate;
     }
@@ -148,7 +146,7 @@ public class KernelSwitchPopPredictor {
         return (double) bin * sampleRate / fftSize;
     }
 
-    private double getThresholdForFrequency(double frequency) {
+    double getThresholdForFrequency(double frequency) {
         // Find the appropriate threshold using linear interpolation
         for (int i = 0; i < BARK_CENTER_FREQUENCIES.length - 1; i++) {
             if (frequency <= BARK_CENTER_FREQUENCIES[i + 1]) {

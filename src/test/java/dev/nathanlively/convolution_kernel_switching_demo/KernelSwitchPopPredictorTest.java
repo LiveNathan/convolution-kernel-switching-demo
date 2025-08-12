@@ -3,6 +3,8 @@ package dev.nathanlively.convolution_kernel_switching_demo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.util.List;
 import java.util.Random;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -22,23 +24,48 @@ class KernelSwitchPopPredictorTest {
     }
 
     @Test
-    void predictInaudibleSwitchForSmallGainChange() {
-        double[] signal = new AudioSignalBuilder()
-                .withLengthSeconds(1.0)
-                .withSampleRate(SAMPLE_RATE)
-                .withSineWave(200, 1.0)
-                .build();
-        double[] kernel1 = {1.0};
-        double[] kernel2 = {0.99}; // 1% change
+    void predictInaudibleSwitchesAtRandomLocations() throws IOException {
+        Random random = new Random(42); // Fixed seed for reproducibility
+        int numTests = 10;
 
-        // Switch at a peak of the sine wave, not a zero crossing
-        int samplesPerCycle = SAMPLE_RATE / 440;
-        int switchIndex = samplesPerCycle / 4; // Peak at 90 degrees
+        for (int testRun = 0; testRun < numTests; testRun++) {
+            // Generate random frequency in perceptually relevant range
+            int frequency = 50 + random.nextInt(7950); // 50-8000 Hz
 
-        double audibility = predictor.predictAudibility(
-                signal, kernel1, kernel2, switchIndex);
+            // Get threshold for this frequency and choose gain change 80% of threshold
+            double threshold = predictor.getThresholdForFrequency(frequency);
+            double gainReduction = threshold * 0.8; // Should be inaudible
 
-        assertThat(audibility).isLessThan(1.0); // Should be inaudible
+            // Generate signal
+            double[] signal = new AudioSignalBuilder()
+                    .withLengthSeconds(2.0)
+                    .withSampleRate(SAMPLE_RATE)
+                    .withSineWave(frequency, 1.0)
+                    .build();
+
+            // Random switch location (avoid edges)
+            int switchIndex = 1000 + random.nextInt(signal.length - 2000);
+
+            double[] kernel1 = {1.0};
+            double[] kernel2 = {1.0 - gainReduction};
+
+            // Predict audibility
+            double audibility = predictor.predictAudibility(signal, kernel1, kernel2, switchIndex);
+
+            // Generate actual convolved audio for verification
+            Convolution convolution = new OverlapSaveAdapter();
+            double[] convolved = convolution.with(signal, List.of(kernel1, kernel2), switchIndex);
+
+            // Save for human verification
+            String filename = String.format("inaudible-test-%d-freq-%dHz-gain-%.3f-audit-%.3f.wav",
+                    testRun, frequency, gainReduction, audibility);
+            audioHelper.save(new WavFile(SAMPLE_RATE, AudioSignals.normalize(convolved)), filename);
+
+            assertThat(audibility)
+                    .as("Test %d: %d Hz, %.3f gain reduction should be inaudible",
+                            testRun, frequency, gainReduction)
+                    .isLessThan(1.0);
+        }
     }
 
     @Test
@@ -86,7 +113,7 @@ class KernelSwitchPopPredictorTest {
 //    };
 
     @Test
-    void givenPureTone_whenCalculateMaskingFactor_thenReturn1() throws Exception {
+    void givenPureTone_whenCalculateMaskingFactor_thenReturn1() {
         final double[] sineWaveSignal = new AudioSignalBuilder()
                 .withLength(512)
                 .withSampleRate(SAMPLE_RATE)
