@@ -20,6 +20,11 @@ public class AudioSignalBuilder {
         return this;
     }
 
+    public AudioSignalBuilder withLengthSeconds(double length) {
+        this.length = (int) (length * sampleRate);
+        return this;
+    }
+
     public AudioSignalBuilder withSampleRate(double sampleRate) {
         this.sampleRate = sampleRate;
         return this;

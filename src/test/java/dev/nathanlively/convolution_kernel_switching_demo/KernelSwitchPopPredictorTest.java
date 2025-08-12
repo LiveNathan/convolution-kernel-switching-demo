@@ -23,7 +23,11 @@ class KernelSwitchPopPredictorTest {
 
     @Test
     void predictInaudibleSwitchForSmallGainChange() {
-        double[] signal = AudioSignals.generateSineWave(440, 1.0, SAMPLE_RATE);
+        double[] signal = new AudioSignalBuilder()
+                .withLengthSeconds(1.0)
+                .withSampleRate(SAMPLE_RATE)
+                .withSineWave(200, 1.0)
+                .build();
         double[] kernel1 = {1.0};
         double[] kernel2 = {0.99}; // 1% change
 

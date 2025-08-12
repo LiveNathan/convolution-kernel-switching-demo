@@ -3,7 +3,6 @@ package dev.nathanlively.convolution_kernel_switching_demo;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.commons.numbers.complex.Complex;
 
-// https://claude.ai/chat/e731fc8f-503f-4ed9-8d6e-bb69c2a7629e
 public class KernelSwitchPopPredictor {
     private final MaskingFactorCalculator maskingCalc = new MaskingFactorCalculator();
     private static final double[] BARK_CENTER_FREQUENCIES = {
