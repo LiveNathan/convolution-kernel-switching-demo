@@ -22,8 +22,8 @@ public class KernelSwitchPopPredictor {
         this.sampleRate = sampleRate;
     }
 
-    public double predictAudibility(double[] signal, double[] currentKernel,
-                                    double[] candidateKernel, int switchIndex) {
+    public PerceptualImpact predictAudibility(double[] signal, double[] currentKernel,
+                                              double[] candidateKernel, int switchIndex) {
         // 1. Calculate the actual discontinuity at switch point
         double currentOutput = convolve(signal, currentKernel, switchIndex);
         double candidateOutput = convolve(signal, candidateKernel, switchIndex);
@@ -64,7 +64,7 @@ public class KernelSwitchPopPredictor {
         double effectiveThreshold = threshold * maskingFactor;
 
         // 9. Return perceptual impact
-        return rawDiscontinuity / effectiveThreshold;
+        return new PerceptualImpact(rawDiscontinuity / effectiveThreshold);
     }
 
     // Rename for clarity - this doesn't window, just extracts

@@ -29,8 +29,13 @@ class KernelSwitchPopPredictorTest {
         int numTests = 10;
 
         for (int testRun = 0; testRun < numTests; testRun++) {
-            // Generate random frequency in perceptually relevant range
-            int frequency = 50 + random.nextInt(7950); // 50-8000 Hz
+            // Generate random frequency on log scale in perceptually relevant range
+            double minFreq = 50.0;   // 50 Hz
+            double maxFreq = 8000.0; // 8000 Hz
+            double logMinFreq = Math.log(minFreq);
+            double logMaxFreq = Math.log(maxFreq);
+            double randomLogFreq = logMinFreq + random.nextDouble() * (logMaxFreq - logMinFreq);
+            int frequency = (int) Math.round(Math.exp(randomLogFreq));
 
             // Get threshold for this frequency and choose gain change 80% of threshold
             double threshold = predictor.getThresholdForFrequency(frequency);
@@ -50,7 +55,7 @@ class KernelSwitchPopPredictorTest {
             double[] kernel2 = {1.0 - gainReduction};
 
             // Predict audibility
-            double audibility = predictor.predictAudibility(signal, kernel1, kernel2, switchIndex);
+            PerceptualImpact perceptualImpact = predictor.predictAudibility(signal, kernel1, kernel2, switchIndex);
 
             // Generate actual convolved audio for verification
             Convolution convolution = new OverlapSaveAdapter();
@@ -58,13 +63,13 @@ class KernelSwitchPopPredictorTest {
 
             // Save for human verification
             String filename = String.format("inaudible-test-%d-freq-%dHz-gain-%.3f-audit-%.3f.wav",
-                    testRun, frequency, gainReduction, audibility);
+                    testRun, frequency, gainReduction, perceptualImpact.ratio());
             audioHelper.save(new WavFile(SAMPLE_RATE, AudioSignals.normalize(convolved)), filename);
 
-            assertThat(audibility)
+            assertThat(perceptualImpact.isInaudible())
                     .as("Test %d: %d Hz, %.3f gain reduction should be inaudible",
                             testRun, frequency, gainReduction)
-                    .isLessThan(1.0);
+                    .isTrue();
         }
     }
 
@@ -78,10 +83,9 @@ class KernelSwitchPopPredictorTest {
         int samplesPerCycle = SAMPLE_RATE / 100;
         int switchIndex = samplesPerCycle / 4; // Peak at 90 degrees
 
-        double audibility = predictor.predictAudibility(
-                signal, kernel1, kernel2, switchIndex);
+        PerceptualImpact audibility = predictor.predictAudibility(signal, kernel1, kernel2, switchIndex);
 
-        assertThat(audibility).isGreaterThan(1.0); // Should be audible
+        assertThat(audibility.isAudible()).isTrue();
     }
 
     @Test
@@ -95,12 +99,10 @@ class KernelSwitchPopPredictorTest {
         int lowFreqSwitchIndex = SAMPLE_RATE / 100 / 4; // 100 Hz peak
         int highFreqSwitchIndex = SAMPLE_RATE / 8000 / 4; // 8000 Hz peak
 
-        double lowFreqAudibility = predictor.predictAudibility(
-                lowFreqSignal, kernel1, kernel2, lowFreqSwitchIndex);
-        double highFreqAudibility = predictor.predictAudibility(
-                highFreqSignal, kernel1, kernel2, highFreqSwitchIndex);
+        PerceptualImpact lowFreqAudibility = predictor.predictAudibility(lowFreqSignal, kernel1, kernel2, lowFreqSwitchIndex);
+        PerceptualImpact highFreqAudibility = predictor.predictAudibility(highFreqSignal, kernel1, kernel2, highFreqSwitchIndex);
 
-        assertThat(highFreqAudibility).isLessThan(lowFreqAudibility);
+        assertThat(highFreqAudibility.ratio()).isLessThan(lowFreqAudibility.ratio());
     }
 
     // Multiply base threshold by these factors
@@ -127,7 +129,7 @@ class KernelSwitchPopPredictorTest {
     }
 
     @Test
-    void givenNoise_whenCalculateMaskingFactor_thenReturn3() throws Exception {
+    void givenNoise_whenCalculateMaskingFactor_thenReturn3() {
         double[] signal = new AudioSignalBuilder()
                 .withLength(512)
                 .withWhiteNoise(0.5)
@@ -142,7 +144,7 @@ class KernelSwitchPopPredictorTest {
     }
 
     @Test
-    void givenJungleMusic_whenCalculateMaskingFactor_thenReturn3() throws Exception {
+    void givenJungleMusic_whenCalculateMaskingFactor_thenReturn3() {
         String fileName = "crossing.wav";
         WavFile signal = audioHelper.loadFromClasspath(fileName);
         double[] powerSpectrum = SignalTransformer.powerSpectrum(signal.signal());
@@ -154,7 +156,7 @@ class KernelSwitchPopPredictorTest {
     }
 
     @Test
-    void givenSpeech_whenCalculateMaskingFactor_thenReturn2() throws Exception {
+    void givenSpeech_whenCalculateMaskingFactor_thenReturn2() {
         String fileName = "Lecture5sec.wav";
         WavFile signal = audioHelper.loadFromClasspath(fileName);
         double[] powerSpectrum = SignalTransformer.powerSpectrum(signal.signal());
