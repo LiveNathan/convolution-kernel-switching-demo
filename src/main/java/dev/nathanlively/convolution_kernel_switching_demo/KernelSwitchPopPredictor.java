@@ -5,13 +5,13 @@ import org.apache.commons.numbers.complex.Complex;
 
 public class KernelSwitchPopPredictor {
     private final MaskingFactorCalculator maskingCalc = new MaskingFactorCalculator();
-    private static final double[] BARK_CENTER_FREQUENCIES = {
+     static final double[] BARK_CENTER_FREQUENCIES = {
             50, 150, 250, 350, 450, 570, 700, 840, 1000, 1170,
             1370, 1600, 1850, 2150, 2500, 2900, 3400, 4000, 4800, 5800,
             7000, 8500, 10500, 13500
     };
 
-    private static final double[] BARK_DISCONTINUITY_THRESHOLDS = {
+    static final double[] BARK_DISCONTINUITY_THRESHOLDS = {
             0.012, 0.015, 0.018, 0.025, 0.035, 0.045, 0.055, 0.065,
             0.070, 0.075, 0.080, 0.085, 0.090, 0.095, 0.100, 0.110,
             0.120, 0.130, 0.140, 0.150, 0.160, 0.170, 0.180, 0.200

@@ -2,6 +2,8 @@ package dev.nathanlively.convolution_kernel_switching_demo;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.List;
@@ -15,7 +17,7 @@ class KernelSwitchPopPredictorTest {
     private KernelSwitchPopPredictor predictor;
     private AudioTestHelper audioHelper;
     private SpectralFluxCalculator fluxCalc;
-
+private static final Logger log = LoggerFactory.getLogger(KernelSwitchPopPredictorTest.class);
     @BeforeEach
     void setUp() {
         predictor = new KernelSwitchPopPredictor(SAMPLE_RATE);
@@ -58,8 +60,7 @@ class KernelSwitchPopPredictorTest {
             PerceptualImpact perceptualImpact = predictor.predictAudibility(signal, kernel1, kernel2, switchIndex);
 
             // Generate actual convolved audio for verification
-            Convolution convolution = new OverlapSaveAdapter();
-            double[] convolved = convolution.with(signal, List.of(kernel1, kernel2), switchIndex);
+            double[] convolved = new OverlapSaveAdapter().with(signal, List.of(kernel1, kernel2), switchIndex);
 
             // Save for human verification
             String filename = String.format("inaudible-test-%d-freq-%dHz-gain-%.3f-audit-%.3f.wav",
@@ -167,4 +168,69 @@ class KernelSwitchPopPredictorTest {
         assertThat(actual).isCloseTo(2, offset(0.04));
     }
 
+    @Test
+    void calibrateBarkBandThresholds() throws IOException {
+        Random random = new Random(42);
+        Convolution convolution = new OverlapSaveAdapter();
+
+        // Access package-private BARK_CENTER_FREQUENCIES and BARK_DISCONTINUITY_THRESHOLDS
+        double[] frequencies = KernelSwitchPopPredictor.BARK_CENTER_FREQUENCIES;
+        double[] thresholds = KernelSwitchPopPredictor.BARK_DISCONTINUITY_THRESHOLDS;
+
+        log.info("=== BARK BAND THRESHOLD CALIBRATION ===");
+        log.info("Generating {} test files for threshold validation", frequencies.length);
+
+        for (int i = 0; i < frequencies.length; i++) {
+            double frequency = frequencies[i];
+            double threshold = thresholds[i];
+
+            // Generate 3-second sine wave at this frequency
+            double[] signal = new AudioSignalBuilder()
+                    .withLengthSeconds(3.0)
+                    .withSampleRate(SAMPLE_RATE)
+                    .withSineWave(frequency, 1.0)
+                    .build();
+
+            // Create kernels using the threshold
+            double[] kernel1 = {1.0};
+            double[] kernel2 = {1.0 - threshold}; // Apply the threshold as gain reduction
+
+            // Random switching period to avoid zero-crossing alignment
+            // Use 0.2-0.5 seconds for good perceptual testing
+            double minPeriod = 0.2;
+            double maxPeriod = 0.5;
+            double randomPeriod = minPeriod + random.nextDouble() * (maxPeriod - minPeriod);
+            int periodSamples = (int)(SAMPLE_RATE * randomPeriod);
+
+            // Apply convolution with periodic kernel switching
+            double[] result = convolution.with(signal, List.of(kernel1, kernel2), periodSamples);
+
+            // Calculate actual discontinuity for reference
+            double maxDiscontinuity = findMaxDiscontinuity(result);
+
+            // Log details for analysis
+            log.info("Band {}: {}Hz, threshold={}, period={}s, max_disc={}",
+                    i, frequency, threshold, randomPeriod, maxDiscontinuity);
+
+            // Save with descriptive filename
+            String filename = String.format("calibrate-band-%02d-freq-%05.0fHz-thresh-%.3f-disc-%.4f.wav",
+                    i, frequency, threshold, maxDiscontinuity);
+            audioHelper.save(new WavFile(SAMPLE_RATE,
+                    AudioSignals.normalize(result)), filename);
+        }
+
+        log.info("Calibration files generated. Listen to each file:");
+        log.info("- If you hear pops/clicks, reduce that band's threshold");
+        log.info("- If completely clean, threshold might be conservative (could increase)");
+        log.info("- Note: bands 8-14 (1-5kHz) are most critical for perception");
+    }
+
+    private double findMaxDiscontinuity(double[] signal) {
+        double maxJump = 0.0;
+        for (int i = 1; i < signal.length; i++) {
+            double jump = Math.abs(signal[i] - signal[i-1]);
+            maxJump = Math.max(maxJump, jump);
+        }
+        return maxJump;
+    }
 }
