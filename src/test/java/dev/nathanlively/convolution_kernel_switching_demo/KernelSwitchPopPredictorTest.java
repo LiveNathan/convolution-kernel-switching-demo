@@ -25,7 +25,7 @@ class KernelSwitchPopPredictorTest {
 
     @Test
     void predictInaudibleSwitchesAtRandomLocations() throws IOException {
-        Random random = new Random(42); // Fixed seed for reproducibility
+        Random random = new Random(); // Fixed seed for reproducibility
         int numTests = 10;
 
         for (int testRun = 0; testRun < numTests; testRun++) {
