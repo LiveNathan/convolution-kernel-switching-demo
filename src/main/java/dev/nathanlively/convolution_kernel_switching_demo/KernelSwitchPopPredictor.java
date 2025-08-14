@@ -11,10 +11,6 @@ public class KernelSwitchPopPredictor {
             7000, 8500, 10500, 13500
     };
 
-    // Line 11: Replace the entire BARK_DISCONTINUITY_THRESHOLDS array
-// Line 11: Update only bands 21-22 in BARK_DISCONTINUITY_THRESHOLDS
-// Line 11: Update only bands 21 and 23 in BARK_DISCONTINUITY_THRESHOLDS
-// Line 11: Update bands 20-23 in BARK_DISCONTINUITY_THRESHOLDS
     static final double[] BARK_DISCONTINUITY_THRESHOLDS = {
             0.012, 0.015, 0.018, 0.025, 0.030, 0.038, 0.025, 0.032,
             0.035, 0.035, 0.037, 0.043, 0.042, 0.048, 0.047, 0.056,

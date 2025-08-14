@@ -1,6 +1,7 @@
 package dev.nathanlively.convolution_kernel_switching_demo;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -168,6 +169,7 @@ private static final Logger log = LoggerFactory.getLogger(KernelSwitchPopPredict
         assertThat(actual).isCloseTo(2, offset(0.04));
     }
 
+    @Disabled("unless we need to calibrate again")
     @Test
     void calibrateBarkBandThresholds() throws IOException {
         Random random = new Random(42);
