@@ -72,9 +72,9 @@ class PhaseShiftKernelSwitchTest {
 
     @Test
     void testPolarityInversionAtPeak() throws IOException {
-        int frequency = 10;
+        int frequency = 178;
         double[] signal = new AudioSignalBuilder()
-                .withLengthSeconds(2.0)
+                .withLengthSeconds(4.0)
                 .withSampleRate(SAMPLE_RATE)
                 .withSineWave(frequency, 1.0)
                 .build();
@@ -94,8 +94,8 @@ class PhaseShiftKernelSwitchTest {
 
         PerceptualImpact impact = predictor.predictAudibility(signal, kernel1, kernel2, peakIndex);
 
-        String filename = String.format("polarity-peak-%dHz-impact-%.3f.wav",
-                frequency, impact.ratio());
+        log.info("Pop prediction: {}", impact.isAudible());
+        String filename = String.format("polarity-peak-%dHz-impact-%.3f.wav", frequency, impact.ratio());
         audioHelper.save(new WavFile(SAMPLE_RATE, AudioSignals.normalize(result)), filename);
 
         // This should definitely be audible
@@ -112,7 +112,7 @@ class PhaseShiftKernelSwitchTest {
         kernel1[0] = 1.0;
         double[] kernel2 = createFirstOrderAllpass(a);
 
-        int frequency = 100;
+        int frequency = 142;
         double[] signal = new AudioSignalBuilder()
                 .withLengthSeconds(4.0)
                 .withSampleRate(SAMPLE_RATE)
@@ -134,8 +134,8 @@ class PhaseShiftKernelSwitchTest {
 
             PerceptualImpact impact = predictor.predictAudibility(signal, kernel1, kernel2, switchIndex);
 
-            String filename = String.format("allpass-%dHz-phase-%.2fpi-impact-%.3f.wav",
-                    frequency, phase * 2, impact.ratio());
+            log.info("Pop prediction: {}", impact.isAudible());
+            String filename = String.format("allpass-%dHz-phase-%.2fpi-impact-%.3f.wav", frequency, phase * 2, impact.ratio());
             audioHelper.save(new WavFile(SAMPLE_RATE, AudioSignals.normalize(result)), filename);
         }
     }
