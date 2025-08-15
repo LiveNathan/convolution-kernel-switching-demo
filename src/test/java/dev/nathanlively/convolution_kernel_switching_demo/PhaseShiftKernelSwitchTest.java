@@ -60,8 +60,8 @@ class PhaseShiftKernelSwitchTest {
             // Predict audibility
             PerceptualImpact impact = predictor.predictAudibility(signal, kernel1, kernel2, zeroCrossingIndex);
 
-            String filename = String.format("polarity-zero-cross-%dHz-cycle-%d-impact-%.3f.wav",
-                    frequency, cycle, impact.ratio());
+            log.info("Pop prediction: {}", impact.isAudible());
+            String filename = String.format("polarity-zero-cross-%dHz-cycle-%d-impact-%.3f.wav", frequency, cycle, impact.ratio());
             audioHelper.save(new WavFile(SAMPLE_RATE, AudioSignals.normalize(result)), filename);
 
             // Even at zero crossing, polarity inversion should be audible
