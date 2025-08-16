@@ -67,12 +67,17 @@ class KernelSwitchPopPredictorTest {
                 do {
                     double[] kernel2 = {1.0 - gainReduction};
                     perceptualImpact = predictor.predictAudibility(signal, kernel1, kernel2, switchIndex);
-                    maxInaudibleGainReduction = gainReduction;
+
+                    if (perceptualImpact.isInaudible()) {
+                        maxInaudibleGainReduction = gainReduction;
+                    }
+
                     gainReduction += stepSize;
                 } while (perceptualImpact.isInaudible());
 
-                // Generate audio at the threshold for verification
+                // Test again with the actual max inaudible value for verification
                 double[] kernel2 = {1.0 - maxInaudibleGainReduction};
+                PerceptualImpact finalImpact = predictor.predictAudibility(signal, kernel1, kernel2, switchIndex);
                 double[] convolved = convolution.with(signal, List.of(kernel1, kernel2), switchIndex);
                 double maxDiscontinuity = findMaxDiscontinuity(convolved);
 
@@ -86,7 +91,7 @@ class KernelSwitchPopPredictorTest {
                         switchIndex / (double) audioFile.sampleRate());
                 audioHelper.save(new WavFile(audioFile.sampleRate(), AudioSignals.normalize(convolved)), outputFileName);
 
-                assertThat(perceptualImpact.isInaudible()).isTrue();
+                assertThat(finalImpact.isInaudible()).isTrue();
             } catch (Exception e) {
                 log.warn("Could not process {}: {}", fileName, e.getMessage());
             }
