@@ -149,7 +149,7 @@ class KernelSwitchPopPredictorTest {
 
     @Test
     void predictAudibleSwitchesAtRandomLocations() throws IOException {
-        Random random = new Random(); // Fixed seed for reproducibility
+        Random random = new Random(); // Random seed
         int numTests = 10;
 
         for (int testRun = 0; testRun < numTests; testRun++) {
@@ -172,22 +172,35 @@ class KernelSwitchPopPredictorTest {
                     .withSineWave(frequency, 1.0)
                     .build();
 
-            // Random switch location (avoid edges)
-            int switchIndex = 1000 + random.nextInt(signal.length - 2000);
+            // Calculate samples per cycle for this frequency
+            double samplesPerCycle = (double) SAMPLE_RATE / frequency;
+
+            // Place switch at a peak (90° phase) after some cycles to avoid edge effects
+            int cycleNumber = 10; // Switch after 10 complete cycles
+            int actualSwitchIndex = (int)(cycleNumber * samplesPerCycle + samplesPerCycle / 4);
+
+            // Ensure we're actually at a peak by checking the signal value
+            double signalValue = signal[actualSwitchIndex];
+            assertThat(Math.abs(signalValue))
+                    .as("Signal at switch point should be near peak")
+                    .isGreaterThan(0.9);
 
             double[] kernel1 = {1.0};
             double[] kernel2 = {1.0 - gainReduction};
 
-            // Predict audibility
-            PerceptualImpact perceptualImpact = predictor.predictAudibility(signal, kernel1, kernel2, switchIndex);
+            // Predict audibility at the actual switch point
+            PerceptualImpact perceptualImpact = predictor.predictAudibility(signal, kernel1, kernel2, actualSwitchIndex);
 
-            // Generate actual convolved audio for verification
-            double[] convolved = new OverlapSaveAdapter().with(signal, List.of(kernel1, kernel2), switchIndex);
+            // Use the same index as the period for the convolution (switches happen at 0, actualSwitchIndex, 2*actualSwitchIndex, etc.)
+            double[] convolved = new OverlapSaveAdapter().with(signal, List.of(kernel1, kernel2), actualSwitchIndex);
 
             // Save for human verification
             String filename = String.format("audible-test-%d-freq-%dHz-gain-%.3f-audit-%.3f.wav",
                     testRun, frequency, gainReduction, perceptualImpact.ratio());
             audioHelper.save(new WavFile(SAMPLE_RATE, AudioSignals.normalize(convolved)), filename);
+
+            log.info("Test {}: {}Hz, gain={:.3f}, signal_at_switch={:.3f}, impact_ratio={:.3f}",
+                    testRun, frequency, gainReduction, signalValue, perceptualImpact.ratio());
 
             assertThat(perceptualImpact.isAudible())
                     .as("Test %d: %d Hz, %.3f gain reduction should be audible",
