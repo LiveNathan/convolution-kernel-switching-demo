@@ -203,7 +203,7 @@ class BeatThePredictorTest {
 
         PerceptualImpact impact = predictor.predictAudibility(signal,
                 paddedKernel1, kernel2, switchIndex);
-
+assertThat(impact.isInaudible()).isTrue();
         double maxDisc = findMaxDiscontinuityNearIndex(result, switchIndex, 200);
 
         log.info("Group delay - Discontinuity: {}, Impact: {}, Audible: {}",
