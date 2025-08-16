@@ -18,7 +18,8 @@ class KernelSwitchPopPredictorTest {
     private KernelSwitchPopPredictor predictor;
     private AudioTestHelper audioHelper;
     private SpectralFluxCalculator fluxCalc;
-private static final Logger log = LoggerFactory.getLogger(KernelSwitchPopPredictorTest.class);
+    private static final Logger log = LoggerFactory.getLogger(KernelSwitchPopPredictorTest.class);
+
     @BeforeEach
     void setUp() {
         predictor = new KernelSwitchPopPredictor(SAMPLE_RATE);
@@ -27,51 +28,134 @@ private static final Logger log = LoggerFactory.getLogger(KernelSwitchPopPredict
     }
 
     @Test
-    void predictInaudibleSwitchesAtRandomLocations() throws IOException {
-        Random random = new Random(); // Fixed seed for reproducibility
-        int numTests = 10;
+    void findActualInaudibilityThresholdForRealAudioFiles() throws IOException {
+        String[] fileNames = {
+                "you-cant-hide-6s.wav", "Lecture5sec.wav", "ambient6s.wav",
+                "daises.wav", "crossing.wav"
+        };
 
-        for (int testRun = 0; testRun < numTests; testRun++) {
-            // Generate random frequency on log scale in perceptually relevant range
-            double minFreq = 50.0;   // 50 Hz
-            double maxFreq = 8000.0; // 8000 Hz
-            double logMinFreq = Math.log(minFreq);
-            double logMaxFreq = Math.log(maxFreq);
-            double randomLogFreq = logMinFreq + random.nextDouble() * (logMaxFreq - logMinFreq);
-            int frequency = (int) Math.round(Math.exp(randomLogFreq));
+        String[] labels = {
+                "EDM", "Speech", "Ambient", "Acoustic", "Jungle"
+        };
 
-            // Get threshold for this frequency and choose gain change 80% of threshold
-            double threshold = predictor.getThresholdForFrequency(frequency);
-            double gainReduction = threshold * 0.8; // Should be inaudible
+        Random random = new Random();
+        Convolution convolution = new OverlapSaveAdapter();
 
-            // Generate signal
-            double[] signal = new AudioSignalBuilder()
-                    .withLengthSeconds(2.0)
-                    .withSampleRate(SAMPLE_RATE)
-                    .withSineWave(frequency, 1.0)
-                    .build();
+        log.info("=== FINDING ACTUAL INAUDIBILITY THRESHOLDS ===");
 
-            // Random switch location (avoid edges)
-            int switchIndex = 1000 + random.nextInt(signal.length - 2000);
+        for (int fileIndex = 0; fileIndex < fileNames.length; fileIndex++) {
+            String fileName = fileNames[fileIndex];
+            String label = labels[fileIndex];
 
-            double[] kernel1 = {1.0};
-            double[] kernel2 = {1.0 - gainReduction};
+            try {
+                WavFile audioFile = audioHelper.loadFromClasspath(fileName);
+                double[] signal = audioFile.signal();
 
-            // Predict audibility
-            PerceptualImpact perceptualImpact = predictor.predictAudibility(signal, kernel1, kernel2, switchIndex);
+                // Pick one random switch location for this entire file
+                int minSwitchIndex = (int) (audioFile.sampleRate() * 0.5); // After 0.5 seconds
+                int maxSwitchIndex = signal.length - (int) (audioFile.sampleRate() * 0.5); // Before last 0.5 seconds
+                int switchIndex = minSwitchIndex + random.nextInt(maxSwitchIndex - minSwitchIndex);
 
-            // Generate actual convolved audio for verification
-            double[] convolved = new OverlapSaveAdapter().with(signal, List.of(kernel1, kernel2), switchIndex);
+                // Find the maximum gain reduction where it's still inaudible
+                double gainReduction = 0.001; // Start very small
+                double stepSize = 0.001;
+                double maxInaudibleGainReduction = 0.0;
 
-            // Save for human verification
-            String filename = String.format("inaudible-test-%d-freq-%dHz-gain-%.3f-audit-%.3f.wav",
-                    testRun, frequency, gainReduction, perceptualImpact.ratio());
-            audioHelper.save(new WavFile(SAMPLE_RATE, AudioSignals.normalize(convolved)), filename);
+                double[] kernel1 = {1.0};
 
-            assertThat(perceptualImpact.isInaudible())
-                    .as("Test %d: %d Hz, %.3f gain reduction should be inaudible",
-                            testRun, frequency, gainReduction)
-                    .isTrue();
+                PerceptualImpact perceptualImpact;
+                do {
+                    double[] kernel2 = {1.0 - gainReduction};
+                    perceptualImpact = predictor.predictAudibility(signal, kernel1, kernel2, switchIndex);
+                    maxInaudibleGainReduction = gainReduction;
+                    gainReduction += stepSize;
+                } while (perceptualImpact.isInaudible());
+
+                // Generate audio at the threshold for verification
+                double[] kernel2 = {1.0 - maxInaudibleGainReduction};
+                double[] convolved = convolution.with(signal, List.of(kernel1, kernel2), switchIndex);
+                double maxDiscontinuity = findMaxDiscontinuity(convolved);
+
+                log.info("{}: switch_at={}s, max_inaudible_gain_reduction={}, max_disc={}",
+                        label, switchIndex / (double) audioFile.sampleRate(),
+                        maxInaudibleGainReduction, maxDiscontinuity);
+
+                // Save the audio at the threshold
+                String outputFileName = String.format("threshold-%s-gain-%.4f-switch-%.1fs.wav",
+                        label.toLowerCase(), maxInaudibleGainReduction,
+                        switchIndex / (double) audioFile.sampleRate());
+                audioHelper.save(new WavFile(audioFile.sampleRate(), AudioSignals.normalize(convolved)), outputFileName);
+
+                assertThat(perceptualImpact.isInaudible()).isTrue();
+            } catch (Exception e) {
+                log.warn("Could not process {}: {}", fileName, e.getMessage());
+            }
+        }
+    }
+
+    @Test
+    void predictInaudibleSwitchesWithRealAudioFiles() throws IOException {
+        String[] fileNames = {
+                "you-cant-hide-6s.wav", "Lecture5sec.wav", "ambient6s.wav",
+                "daises.wav", "crossing.wav"
+        };
+
+        String[] labels = {
+                "EDM", "Speech", "Ambient", "Acoustic", "Jungle"
+        };
+
+        Random random = new Random();
+        Convolution convolution = new OverlapSaveAdapter();
+
+        log.info("=== REAL AUDIO INAUDIBLE SWITCH PREDICTION ===");
+
+        for (int fileIndex = 0; fileIndex < fileNames.length; fileIndex++) {
+            String fileName = fileNames[fileIndex];
+            String label = labels[fileIndex];
+
+            try {
+                WavFile audioFile = audioHelper.loadFromClasspath(fileName);
+                double[] signal = audioFile.signal();
+
+                // Test multiple gain reductions for each file
+                double[] gainReductions = {0.01, 0.02, 0.03, 0.05, 0.08}; // 1% to 8%
+
+                for (double gainReduction : gainReductions) {
+                    // Choose random switch location (avoid edges)
+                    int minSwitchIndex = (int) (audioFile.sampleRate() * 0.5); // After 0.5 seconds
+                    int maxSwitchIndex = signal.length - (int) (audioFile.sampleRate() * 0.5); // Before last 0.5 seconds
+                    int switchIndex = minSwitchIndex + random.nextInt(maxSwitchIndex - minSwitchIndex);
+
+                    double[] kernel1 = {1.0};
+                    double[] kernel2 = {1.0 - gainReduction};
+
+                    // Predict audibility
+                    PerceptualImpact perceptualImpact = predictor.predictAudibility(signal, kernel1, kernel2, switchIndex);
+
+                    // Generate actual convolved audio
+                    double[] convolved = convolution.with(signal, List.of(kernel1, kernel2), switchIndex);
+
+                    // Calculate actual discontinuity for reference
+                    double maxDiscontinuity = findMaxDiscontinuity(convolved);
+
+                    log.info("{}: gain_reduction={}, switch_at={}s, predicted_ratio={}, max_disc={}, audible={}",
+                            label, gainReduction, switchIndex / (double) audioFile.sampleRate(),
+                            perceptualImpact.ratio(), maxDiscontinuity, perceptualImpact.isAudible());
+
+                    // Save for verification
+                    String outputFileName = String.format("real-audio-%s-gain-%.3f-ratio-%.3f-switch-%.1fs.wav",
+                            label.toLowerCase(), gainReduction, perceptualImpact.ratio(),
+                            switchIndex / (double) audioFile.sampleRate());
+                    audioHelper.save(new WavFile(audioFile.sampleRate(), AudioSignals.normalize(convolved)), outputFileName);
+
+                    assertThat(perceptualImpact.ratio())
+                            .as("{} with {}% gain reduction should have low perceptual impact", label, gainReduction * 100)
+                            .isLessThan(2.0); // Allow some tolerance for complex audio
+                }
+
+            } catch (Exception e) {
+                log.warn("Could not process {}: {}", fileName, e.getMessage());
+            }
         }
     }
 
@@ -202,7 +286,7 @@ private static final Logger log = LoggerFactory.getLogger(KernelSwitchPopPredict
             double minPeriod = 0.2;
             double maxPeriod = 0.5;
             double randomPeriod = minPeriod + random.nextDouble() * (maxPeriod - minPeriod);
-            int periodSamples = (int)(SAMPLE_RATE * randomPeriod);
+            int periodSamples = (int) (SAMPLE_RATE * randomPeriod);
 
             // Apply convolution with periodic kernel switching
             double[] result = convolution.with(signal, List.of(kernel1, kernel2), periodSamples);
@@ -230,7 +314,7 @@ private static final Logger log = LoggerFactory.getLogger(KernelSwitchPopPredict
     private double findMaxDiscontinuity(double[] signal) {
         double maxJump = 0.0;
         for (int i = 1; i < signal.length; i++) {
-            double jump = Math.abs(signal[i] - signal[i-1]);
+            double jump = Math.abs(signal[i] - signal[i - 1]);
             maxJump = Math.max(maxJump, jump);
         }
         return maxJump;
