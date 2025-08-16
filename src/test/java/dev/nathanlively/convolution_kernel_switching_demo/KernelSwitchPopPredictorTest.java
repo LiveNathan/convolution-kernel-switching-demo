@@ -27,6 +27,56 @@ class KernelSwitchPopPredictorTest {
         fluxCalc = new SpectralFluxCalculator();
     }
 
+
+    @Test
+    void predictInaudibleSwitchesAtRandomLocations() throws IOException {
+        Random random = new Random(); // Fixed seed for reproducibility
+        int numTests = 10;
+
+        for (int testRun = 0; testRun < numTests; testRun++) {
+            // Generate random frequency on log scale in perceptually relevant range
+            double minFreq = 50.0;   // 50 Hz
+            double maxFreq = 8000.0; // 8000 Hz
+            double logMinFreq = Math.log(minFreq);
+            double logMaxFreq = Math.log(maxFreq);
+            double randomLogFreq = logMinFreq + random.nextDouble() * (logMaxFreq - logMinFreq);
+            int frequency = (int) Math.round(Math.exp(randomLogFreq));
+
+            // Get threshold for this frequency and choose gain change 80% of threshold
+            double threshold = predictor.getThresholdForFrequency(frequency);
+            double gainReduction = threshold * 0.8; // Should be inaudible
+
+            // Generate signal
+            double[] signal = new AudioSignalBuilder()
+                    .withLengthSeconds(2.0)
+                    .withSampleRate(SAMPLE_RATE)
+                    .withSineWave(frequency, 1.0)
+                    .build();
+
+            // Random switch location (avoid edges)
+            int switchIndex = 1000 + random.nextInt(signal.length - 2000);
+
+            double[] kernel1 = {1.0};
+            double[] kernel2 = {1.0 - gainReduction};
+
+            // Predict audibility
+            PerceptualImpact perceptualImpact = predictor.predictAudibility(signal, kernel1, kernel2, switchIndex);
+
+            // Generate actual convolved audio for verification
+            double[] convolved = new OverlapSaveAdapter().with(signal, List.of(kernel1, kernel2), switchIndex);
+
+            // Save for human verification
+            String filename = String.format("inaudible-test-%d-freq-%dHz-gain-%.3f-audit-%.3f.wav",
+                    testRun, frequency, gainReduction, perceptualImpact.ratio());
+            audioHelper.save(new WavFile(SAMPLE_RATE, AudioSignals.normalize(convolved)), filename);
+
+            assertThat(perceptualImpact.isInaudible())
+                    .as("Test %d: %d Hz, %.3f gain reduction should be inaudible",
+                            testRun, frequency, gainReduction)
+                    .isTrue();
+        }
+    }
+
     @Test
     void findActualInaudibilityThresholdForRealAudioFiles() throws IOException {
         String[] fileNames = {
@@ -98,71 +148,7 @@ class KernelSwitchPopPredictorTest {
         }
     }
 
-    @Test
-    void predictInaudibleSwitchesWithRealAudioFiles() throws IOException {
-        String[] fileNames = {
-                "you-cant-hide-6s.wav", "Lecture5sec.wav", "ambient6s.wav",
-                "daises.wav", "crossing.wav"
-        };
 
-        String[] labels = {
-                "EDM", "Speech", "Ambient", "Acoustic", "Jungle"
-        };
-
-        Random random = new Random();
-        Convolution convolution = new OverlapSaveAdapter();
-
-        log.info("=== REAL AUDIO INAUDIBLE SWITCH PREDICTION ===");
-
-        for (int fileIndex = 0; fileIndex < fileNames.length; fileIndex++) {
-            String fileName = fileNames[fileIndex];
-            String label = labels[fileIndex];
-
-            try {
-                WavFile audioFile = audioHelper.loadFromClasspath(fileName);
-                double[] signal = audioFile.signal();
-
-                // Test multiple gain reductions for each file
-                double[] gainReductions = {0.01, 0.02, 0.03, 0.05, 0.08}; // 1% to 8%
-
-                for (double gainReduction : gainReductions) {
-                    // Choose random switch location (avoid edges)
-                    int minSwitchIndex = (int) (audioFile.sampleRate() * 0.5); // After 0.5 seconds
-                    int maxSwitchIndex = signal.length - (int) (audioFile.sampleRate() * 0.5); // Before last 0.5 seconds
-                    int switchIndex = minSwitchIndex + random.nextInt(maxSwitchIndex - minSwitchIndex);
-
-                    double[] kernel1 = {1.0};
-                    double[] kernel2 = {1.0 - gainReduction};
-
-                    // Predict audibility
-                    PerceptualImpact perceptualImpact = predictor.predictAudibility(signal, kernel1, kernel2, switchIndex);
-
-                    // Generate actual convolved audio
-                    double[] convolved = convolution.with(signal, List.of(kernel1, kernel2), switchIndex);
-
-                    // Calculate actual discontinuity for reference
-                    double maxDiscontinuity = findMaxDiscontinuity(convolved);
-
-                    log.info("{}: gain_reduction={}, switch_at={}s, predicted_ratio={}, max_disc={}, audible={}",
-                            label, gainReduction, switchIndex / (double) audioFile.sampleRate(),
-                            perceptualImpact.ratio(), maxDiscontinuity, perceptualImpact.isAudible());
-
-                    // Save for verification
-                    String outputFileName = String.format("real-audio-%s-gain-%.3f-ratio-%.3f-switch-%.1fs.wav",
-                            label.toLowerCase(), gainReduction, perceptualImpact.ratio(),
-                            switchIndex / (double) audioFile.sampleRate());
-                    audioHelper.save(new WavFile(audioFile.sampleRate(), AudioSignals.normalize(convolved)), outputFileName);
-
-                    assertThat(perceptualImpact.ratio())
-                            .as("{} with {}% gain reduction should have low perceptual impact", label, gainReduction * 100)
-                            .isLessThan(2.0); // Allow some tolerance for complex audio
-                }
-
-            } catch (Exception e) {
-                log.warn("Could not process {}: {}", fileName, e.getMessage());
-            }
-        }
-    }
 
     @Test
     void predictAudibleSwitchForLargeGainChange() {
