@@ -199,7 +199,7 @@ class KernelSwitchPopPredictorTest {
                     testRun, frequency, gainReduction, perceptualImpact.ratio());
             audioHelper.save(new WavFile(SAMPLE_RATE, AudioSignals.normalize(convolved)), filename);
 
-            log.info("Test {}: {}Hz, gain={:.3f}, signal_at_switch={:.3f}, impact_ratio={:.3f}",
+            log.info("Test {}: {}Hz, gain={}, signal_at_switch={}, impact_ratio={}",
                     testRun, frequency, gainReduction, signalValue, perceptualImpact.ratio());
 
             assertThat(perceptualImpact.isAudible())
