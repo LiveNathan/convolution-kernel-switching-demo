@@ -10,8 +10,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Random;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.offset;
+import static org.assertj.core.api.Assertions.*;
 
 class KernelSwitchPopPredictorTest {
     private static final int SAMPLE_RATE = 44100;
@@ -148,22 +147,21 @@ class KernelSwitchPopPredictorTest {
     }
 
     @Test
-    void predictAudibleSwitchesAtRandomLocations() throws IOException {
-        Random random = new Random(); // Random seed
+    void findAudibilityThresholdAtRandomLocations() throws IOException {
+        Random random = new Random(42);
+        Convolution convolution = new OverlapSaveAdapter();
         int numTests = 10;
 
+        log.info("=== FINDING AUDIBILITY THRESHOLDS AT RANDOM LOCATIONS ===");
+
         for (int testRun = 0; testRun < numTests; testRun++) {
-            // Generate random frequency on log scale in perceptually relevant range
-            double minFreq = 50.0;   // 50 Hz
-            double maxFreq = 8000.0; // 8000 Hz
+            // Generate random frequency on log scale
+            double minFreq = 50.0;
+            double maxFreq = 8000.0;
             double logMinFreq = Math.log(minFreq);
             double logMaxFreq = Math.log(maxFreq);
             double randomLogFreq = logMinFreq + random.nextDouble() * (logMaxFreq - logMinFreq);
             int frequency = (int) Math.round(Math.exp(randomLogFreq));
-
-            // Get threshold for this frequency and choose gain change 200% of threshold
-            double threshold = predictor.getThresholdForFrequency(frequency);
-            double gainReduction = threshold * 2.0; // Should be clearly audible
 
             // Generate signal
             double[] signal = new AudioSignalBuilder()
@@ -172,40 +170,70 @@ class KernelSwitchPopPredictorTest {
                     .withSineWave(frequency, 1.0)
                     .build();
 
-            // Calculate samples per cycle for this frequency
-            double samplesPerCycle = (double) SAMPLE_RATE / frequency;
+            // Random switch location (avoid edges)
+            int minIndex = SAMPLE_RATE / 10;  // After 0.1 seconds
+            int maxIndex = signal.length - SAMPLE_RATE / 10;  // Before last 0.1 seconds
+            int switchIndex = minIndex + random.nextInt(maxIndex - minIndex);
 
-            // Place switch at a peak (90° phase) after some cycles to avoid edge effects
-            int cycleNumber = 10; // Switch after 10 complete cycles
-            int actualSwitchIndex = (int)(cycleNumber * samplesPerCycle + samplesPerCycle / 4);
-
-            // Ensure we're actually at a peak by checking the signal value
-            double signalValue = signal[actualSwitchIndex];
-            assertThat(Math.abs(signalValue))
-                    .as("Signal at switch point should be near peak")
-                    .isGreaterThan(0.9);
-
+            // Binary search for the threshold where it becomes audible
             double[] kernel1 = {1.0};
-            double[] kernel2 = {1.0 - gainReduction};
+            double low = 0.0;
+            double high = 0.5;  // Max 50% gain reduction
+            double audibilityThreshold = high;
 
-            // Predict audibility at the actual switch point
-            PerceptualImpact perceptualImpact = predictor.predictAudibility(signal, kernel1, kernel2, actualSwitchIndex);
+            // Binary search with 0.001 precision
+            while (high - low > 0.001) {
+                double mid = (low + high) / 2;
+                double[] kernel2 = {1.0 - mid};
 
-            // Use the same index as the period for the convolution (switches happen at 0, actualSwitchIndex, 2*actualSwitchIndex, etc.)
-            double[] convolved = new OverlapSaveAdapter().with(signal, List.of(kernel1, kernel2), actualSwitchIndex);
+                PerceptualImpact impact = predictor.predictAudibility(
+                        signal, kernel1, kernel2, switchIndex);
 
-            // Save for human verification
-            String filename = String.format("audible-test-%d-freq-%dHz-gain-%.3f-audit-%.3f.wav",
-                    testRun, frequency, gainReduction, perceptualImpact.ratio());
-            audioHelper.save(new WavFile(SAMPLE_RATE, AudioSignals.normalize(convolved)), filename);
+                if (impact.isAudible()) {
+                    audibilityThreshold = mid;
+                    high = mid;
+                } else {
+                    low = mid;
+                }
+            }
 
-            log.info("Test {}: {}Hz, gain={}, signal_at_switch={}, impact_ratio={}",
-                    testRun, frequency, gainReduction, signalValue, perceptualImpact.ratio());
+            // Verify with actual convolution at the found threshold
+            double[] kernel2 = {1.0 - audibilityThreshold};
+            PerceptualImpact finalImpact = predictor.predictAudibility(signal, kernel1, kernel2, switchIndex);
 
-            assertThat(perceptualImpact.isAudible())
-                    .as("Test %d: %d Hz, %.3f gain reduction should be audible",
-                            testRun, frequency, gainReduction)
-                    .isTrue();
+            // Generate actual audio with switching at that point
+            double[] convolved = convolution.with(
+                    signal, List.of(kernel1, kernel2), switchIndex);
+
+            double signalAtSwitch = signal[switchIndex];
+            double expectedThreshold = predictor.getThresholdForFrequency(frequency);
+
+            log.info("Test {}: freq={}Hz, switch@{}ms, signal_value={}, " +
+                     "found_threshold={}, expected_threshold={}, ratio={}, level={}",
+                    testRun, frequency,
+                    switchIndex * 1000.0 / SAMPLE_RATE,
+                    signalAtSwitch,
+                    audibilityThreshold,
+                    expectedThreshold,
+                    finalImpact.ratio(),
+                    finalImpact.level());
+
+            // Save audio for verification
+            String filename = String.format(
+                    "threshold-search-%d-freq-%dHz-thresh-%.4f-signal-%.3f.wav",
+                    testRun, frequency, audibilityThreshold, signalAtSwitch);
+            audioHelper.save(new WavFile(SAMPLE_RATE,
+                    AudioSignals.normalize(convolved)), filename);
+
+            // The found threshold should be somewhat related to the expected threshold
+            // but adjusted for the actual signal value at the switch point
+            // If signal is near zero, we'd need a huge gain change to be audible
+            // If signal is near peak (±1.0), the threshold should be closer to expected
+            double adjustedExpectedThreshold = expectedThreshold / Math.max(0.01, Math.abs(signalAtSwitch));
+            assertThat(finalImpact.isAudible()).isTrue();
+            assertThat(audibilityThreshold)
+                    .as("Audibility threshold should scale with signal amplitude")
+                    .isCloseTo(Math.min(0.5, adjustedExpectedThreshold), within(0.2));
         }
     }
 
@@ -280,8 +308,6 @@ class KernelSwitchPopPredictorTest {
             }
         }
     }
-
-
 
 
     @Test
