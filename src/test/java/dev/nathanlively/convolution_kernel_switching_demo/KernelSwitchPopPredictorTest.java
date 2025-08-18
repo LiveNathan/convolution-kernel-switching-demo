@@ -18,12 +18,16 @@ class KernelSwitchPopPredictorTest {
     private AudioTestHelper audioHelper;
     private SpectralFluxCalculator fluxCalc;
     private static final Logger log = LoggerFactory.getLogger(KernelSwitchPopPredictorTest.class);
+    private Random random;
+    private Convolution convolution;
 
     @BeforeEach
     void setUp() {
         predictor = new KernelSwitchPopPredictor(SAMPLE_RATE);
         audioHelper = new AudioTestHelper();
         fluxCalc = new SpectralFluxCalculator();
+        random = new Random();
+        convolution = new OverlapSaveAdapter();
     }
 
     @Test
@@ -148,8 +152,6 @@ class KernelSwitchPopPredictorTest {
 
     @Test
     void findAudibilityThresholdAtRandomLocations() throws IOException {
-        Random random = new Random(42);
-        Convolution convolution = new OverlapSaveAdapter();
         int numTests = 10;
 
         log.info("=== FINDING AUDIBILITY THRESHOLDS AT RANDOM LOCATIONS ===");
@@ -178,7 +180,7 @@ class KernelSwitchPopPredictorTest {
             // Binary search for the threshold where it becomes audible
             double[] kernel1 = {1.0};
             double low = 0.0;
-            double high = 0.5;  // Max 50% gain reduction
+            double high = 0.9;
             double audibilityThreshold = high;
 
             // Binary search with 0.001 precision
@@ -198,13 +200,11 @@ class KernelSwitchPopPredictorTest {
             }
 
             // Verify with actual convolution at the found threshold
-            double[] kernel2 = {1.0 - audibilityThreshold};
+            double[] kernel2 = {1.0 - (audibilityThreshold * 1.2)};
             PerceptualImpact finalImpact = predictor.predictAudibility(signal, kernel1, kernel2, switchIndex);
 
             // Generate actual audio with switching at that point
-            double[] convolved = convolution.with(
-                    signal, List.of(kernel1, kernel2), switchIndex);
-
+            double[] convolved = convolution.with(signal, List.of(kernel1, kernel2), switchIndex);
             double signalAtSwitch = signal[switchIndex];
             double expectedThreshold = predictor.getThresholdForFrequency(frequency);
 
@@ -243,13 +243,9 @@ class KernelSwitchPopPredictorTest {
                 "you-cant-hide-6s.wav", "Lecture5sec.wav", "ambient6s.wav",
                 "daises.wav", "crossing.wav"
         };
-
         String[] labels = {
                 "EDM", "Speech", "Ambient", "Acoustic", "Jungle"
         };
-
-        Random random = new Random();
-        Convolution convolution = new OverlapSaveAdapter();
 
         log.info("=== FINDING ACTUAL AUDIBILITY THRESHOLDS ===");
 
@@ -263,7 +259,7 @@ class KernelSwitchPopPredictorTest {
 
                 // Pick one random switch location for this entire file
                 int minSwitchIndex = (int) (audioFile.sampleRate() * 0.5); // After 0.5 seconds
-                int maxSwitchIndex = signal.length - (int) (audioFile.sampleRate() * 0.5); // Before last 0.5 seconds
+                int maxSwitchIndex = signal.length - (int) (audioFile.sampleRate() * 1.0);
                 int switchIndex = minSwitchIndex + random.nextInt(maxSwitchIndex - minSwitchIndex);
 
                 // Find the minimum gain reduction where it becomes audible
@@ -284,7 +280,7 @@ class KernelSwitchPopPredictorTest {
                     }
 
                     gainReduction += stepSize;
-                } while (gainReduction < 0.5); // Safety limit
+                } while (gainReduction < 0.9); // Safety limit
 
                 // Test with the actual min audible value for verification
                 double[] kernel2 = {1.0 - minAudibleGainReduction};
