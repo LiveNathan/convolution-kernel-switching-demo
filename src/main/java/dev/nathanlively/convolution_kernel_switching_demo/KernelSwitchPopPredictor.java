@@ -88,11 +88,7 @@ public class KernelSwitchPopPredictor {
         if (spectralFlatness > 0.3) {
             return 3.0; // White noise
         }
-        return 1.0 + (2.0 * normalizedAverageSpectralFlux);
-    }
-
-    double normalizedFlux(double spectralFlux) {
-        return Math.min(1.0, spectralFlux / 3000000);
+        return 1.0 + (4.0 * normalizedAverageSpectralFlux);
     }
 
     // Add these missing methods:
